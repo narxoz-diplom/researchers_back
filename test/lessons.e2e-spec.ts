@@ -41,6 +41,7 @@ describe('Lessons (e2e)', () => {
         email: authorEmail,
         password: 'Password1!',
         fullName: 'Lesson Author',
+        role: 'AUTHOR',
       });
     const authorId = (authorRegister.body as { user: { id: string } }).user.id;
 
@@ -60,6 +61,7 @@ describe('Lessons (e2e)', () => {
         email: `lesson-sub-${Date.now()}@test.local`,
         password: 'Password1!',
         fullName: 'Lesson Subscriber',
+        role: 'SUBSCRIBER',
       });
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
 

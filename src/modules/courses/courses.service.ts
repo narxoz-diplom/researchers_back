@@ -1,8 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CourseStatus, Role } from '@prisma/client';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { MediaService } from '../media/media.service';
-import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { COURSES_REPOSITORY } from './courses.constants';
 import type { ICoursesRepository } from './courses.repository.interface';
 import {
@@ -24,7 +24,7 @@ export class CoursesService {
   constructor(
     @Inject(COURSES_REPOSITORY)
     private readonly coursesRepository: ICoursesRepository,
-    private readonly subscriptionsService: SubscriptionsService,
+    private readonly enrollmentsService: EnrollmentsService,
     private readonly mediaService: MediaService,
   ) {}
 
@@ -57,8 +57,16 @@ export class CoursesService {
 
     this.assertCanViewCourse(course.status, course.authorId, user);
 
-    const hasAccess = await this.resolveHasAccess(course.authorId, user);
-    return toCourseDetail(course, hasAccess);
+    const hasAccess = await this.resolveHasAccess(
+      course.id,
+      course.authorId,
+      user,
+    );
+    const myEnrollment = await this.enrollmentsService.getMyEnrollmentForCourse(
+      course.id,
+      user,
+    );
+    return toCourseDetail(course, hasAccess, myEnrollment);
   }
 
   async create(
@@ -70,6 +78,7 @@ export class CoursesService {
       title: dto.title,
       description: dto.description,
       coverUrl: dto.coverUrl,
+      priceCents: dto.priceCents,
     });
     return toCourseListItemFromAuthorCourse(course);
   }
@@ -84,6 +93,7 @@ export class CoursesService {
       title: dto.title,
       description: dto.description,
       coverUrl: dto.coverUrl,
+      priceCents: dto.priceCents,
     });
 
     return toCourseListItemFromAuthorCourse(course, existing.lessons.length);
@@ -137,6 +147,7 @@ export class CoursesService {
   }
 
   private async resolveHasAccess(
+    courseId: string,
     authorId: string,
     user: JwtPayloadUser,
   ): Promise<boolean> {
@@ -145,7 +156,7 @@ export class CoursesService {
     }
 
     if (user.role === Role.SUBSCRIBER) {
-      return this.subscriptionsService.hasActive(user.id);
+      return this.enrollmentsService.hasApprovedAccess(user.id, courseId);
     }
 
     return false;

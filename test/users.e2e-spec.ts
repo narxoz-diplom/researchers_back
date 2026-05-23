@@ -39,6 +39,7 @@ describe('Users (e2e)', () => {
         email,
         password: 'Password1!',
         fullName: 'Users Test',
+        role: 'SUBSCRIBER',
       });
     userToken = (register.body as { accessToken: string }).accessToken;
     userId = (register.body as { user: { id: string } }).user.id;

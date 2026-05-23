@@ -45,6 +45,7 @@ describe('Media (e2e)', () => {
         email: authorEmail,
         password: 'Password1!',
         fullName: 'Media Author',
+        role: 'AUTHOR',
       });
     const authorId = (authorRegister.body as { user: { id: string } }).user.id;
 
@@ -64,6 +65,7 @@ describe('Media (e2e)', () => {
         email: `media-sub-${Date.now()}@test.local`,
         password: 'Password1!',
         fullName: 'Media Subscriber',
+        role: 'SUBSCRIBER',
       });
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
     userId = (subRegister.body as { user: { id: string } }).user.id;

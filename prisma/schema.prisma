@@ -30,6 +30,13 @@ enum SubscriptionPlan {
   PRO
 }
 
+enum CourseEnrollmentStatus {
+  PENDING
+  PAID
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -45,6 +52,8 @@ model User {
   grantedSubs   Subscription[] @relation("GrantedBy")
   progress      Progress[]
   refreshTokens RefreshToken[]
+  enrollments   CourseEnrollment[] @relation("CourseEnrollments")
+  approvedEnrollments CourseEnrollment[] @relation("ApprovedEnrollments")
 }
 
 model RefreshToken {
@@ -64,14 +73,36 @@ model Course {
   title       String
   description String
   coverUrl    String?
+  priceCents  Int          @default(499000)
   status      CourseStatus @default(DRAFT)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  author  User     @relation("CourseAuthor", fields: [authorId], references: [id])
-  lessons Lesson[]
+  author      User               @relation("CourseAuthor", fields: [authorId], references: [id])
+  lessons     Lesson[]
+  enrollments CourseEnrollment[]
 
   @@index([authorId, status])
+}
+
+model CourseEnrollment {
+  id           String                 @id @default(cuid())
+  courseId     String
+  userId       String
+  status       CourseEnrollmentStatus @default(PENDING)
+  message      String?
+  paidAt       DateTime?
+  approvedAt   DateTime?
+  approvedById String?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user       User   @relation("CourseEnrollments", fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy User?  @relation("ApprovedEnrollments", fields: [approvedById], references: [id])
+
+  @@unique([courseId, userId])
+  @@index([courseId, status])
 }
 
 model Lesson {

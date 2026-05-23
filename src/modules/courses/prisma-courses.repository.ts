@@ -88,6 +88,9 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         title: input.title,
         description: input.description,
         coverUrl: input.coverUrl,
+        ...(input.priceCents !== undefined
+          ? { priceCents: input.priceCents }
+          : {}),
         status: CourseStatus.DRAFT,
       },
       include: {
@@ -105,6 +108,9 @@ export class PrismaCoursesRepository implements ICoursesRepository {
           ? { description: input.description }
           : {}),
         ...(input.coverUrl !== undefined ? { coverUrl: input.coverUrl } : {}),
+        ...(input.priceCents !== undefined
+          ? { priceCents: input.priceCents }
+          : {}),
       },
       include: {
         author: { select: { id: true, fullName: true } },

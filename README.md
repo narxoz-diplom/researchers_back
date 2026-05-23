@@ -1,6 +1,6 @@
 # researchers API
 
-Backend учебной платформы **researchers** — курсы с ручным наполнением, подписки без платёжки, медиа через Cloudinary. Без AI/RAG.
+Backend учебной платформы **researchers** — курсы с ручным наполнением, заявки на курс и выдача доступа автором, медиа через Cloudinary.
 
 Подробное ТЗ: [`TZ.md`](TZ.md). Список endpoint'ов: [`docs/API.md`](docs/API.md).
 
@@ -21,8 +21,8 @@ cp .env.example .env
 ## Локальная разработка
 
 ```bash
-# PostgreSQL (порт 5432 в docker-compose или 5433 если 5432 занят)
-docker compose up -d postgres
+# PostgreSQL на порту 5433 (docker-compose.db.yml)
+docker compose -f docker-compose.db.yml up -d
 
 npm install
 npx prisma generate
@@ -45,7 +45,7 @@ npm run start:dev
 | `AUTHOR` | `author@researchers.local` | `Author123!` |
 | `SUBSCRIBER` | `subscriber@researchers.local` | `Subscriber123!` |
 
-У автора уже есть два демо-курса (один опубликован, один черновик), у подписчика — активная подписка на 30 дней.
+У автора есть демо-курсы; у подписчика в seed — одобренная заявка на опубликованный курс.
 
 ## Полный запуск в Docker
 
@@ -71,7 +71,7 @@ docker compose up --build
 
 ## Модули
 
-`auth` · `users` · `courses` · `lessons` · `media` · `subscriptions` · `progress`
+`auth` · `users` · `courses` · `lessons` · `media` · `enrollments` · `subscriptions` · `progress`
 
 ## Коды ошибок API
 

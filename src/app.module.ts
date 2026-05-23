@@ -14,6 +14,7 @@ import { LessonsModule } from './modules/lessons/lessons.module';
 import { MediaModule } from './modules/media/media.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { ProgressModule } from './modules/progress/progress.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ProgressModule } from './modules/progress/progress.module';
     MediaModule,
     SubscriptionsModule,
     ProgressModule,
+    EnrollmentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

@@ -3,6 +3,7 @@ import {
   CourseWithAuthor,
   CourseWithAuthorAndLessons,
 } from './courses.repository.interface';
+import { MyEnrollmentDto } from '../enrollments/dto/enrollment-response.dto';
 import {
   CourseDetailDto,
   CourseListItemDto,
@@ -17,6 +18,7 @@ export function toCourseListItem(course: CourseListRow): CourseListItemDto {
     status: course.status,
     author: course.author,
     lessonsCount: course._count.lessons,
+    priceCents: course.priceCents,
     createdAt: course.createdAt.toISOString(),
     ...(course.coverUrl ? { coverUrl: course.coverUrl } : {}),
   };
@@ -25,6 +27,7 @@ export function toCourseListItem(course: CourseListRow): CourseListItemDto {
 export function toCourseDetail(
   course: CourseWithAuthorAndLessons,
   hasAccess: boolean,
+  myEnrollment: MyEnrollmentDto | null,
 ): CourseDetailDto {
   return {
     ...toCourseListItem({
@@ -32,6 +35,7 @@ export function toCourseDetail(
       _count: { lessons: course.lessons.length },
     }),
     hasAccess,
+    myEnrollment,
     lessons: course.lessons.map((lesson) => toLessonSummary(lesson, hasAccess)),
   };
 }
@@ -80,6 +84,7 @@ export function toCourseListItemFromAuthorCourse(
     status: course.status,
     author: course.author,
     lessonsCount,
+    priceCents: course.priceCents,
     createdAt: course.createdAt.toISOString(),
     ...(course.coverUrl ? { coverUrl: course.coverUrl } : {}),
   };

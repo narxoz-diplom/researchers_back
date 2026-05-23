@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { Role } from '@prisma/client';
+import { IsEmail, IsIn, IsString, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'student@example.com' })
@@ -15,4 +16,8 @@ export class RegisterDto {
   @IsString()
   @MinLength(2)
   fullName: string;
+
+  @ApiProperty({ enum: [Role.SUBSCRIBER, Role.AUTHOR], example: Role.SUBSCRIBER })
+  @IsIn([Role.SUBSCRIBER, Role.AUTHOR], { message: 'FORBIDDEN_ROLE' })
+  role: Role;
 }

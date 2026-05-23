@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsInt,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 
@@ -30,4 +32,13 @@ export class CreateCourseDto {
   @ValidateIf((_, value) => value !== null && value !== undefined)
   @IsUrl()
   coverUrl?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Price in minor currency units (e.g. 499000 = 4990.00 ₽)',
+    default: 499000,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priceCents?: number;
 }

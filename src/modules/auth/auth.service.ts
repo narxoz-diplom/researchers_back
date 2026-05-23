@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -33,11 +35,16 @@ export class AuthService {
       throw new ConflictException(ErrorCode.EMAIL_TAKEN);
     }
 
+    if (dto.role !== Role.SUBSCRIBER && dto.role !== Role.AUTHOR) {
+      throw new BadRequestException(ErrorCode.FORBIDDEN_ROLE);
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     const user = await this.usersRepository.create({
       email: dto.email,
       passwordHash,
       fullName: dto.fullName,
+      role: dto.role,
     });
 
     return this.issueTokens(user);

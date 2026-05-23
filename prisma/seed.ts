@@ -1,4 +1,10 @@
-import { CourseStatus, PrismaClient, Role, SubscriptionStatus } from '@prisma/client';
+import {
+  CourseEnrollmentStatus,
+  CourseStatus,
+  PrismaClient,
+  Role,
+  SubscriptionStatus,
+} from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -56,6 +62,7 @@ async function seedDemoCourses(authorId: string): Promise<void> {
       title: 'Введение в академическое письмо',
       description:
         'Базовый курс о структуре научной статьи, работе с источниками и стиле изложения.',
+      priceCents: 499000,
       status: CourseStatus.PUBLISHED,
       lessons: {
         create: [
@@ -99,6 +106,37 @@ async function seedDemoCourses(authorId: string): Promise<void> {
   });
 }
 
+async function seedApprovedEnrollment(
+  subscriberId: string,
+  authorId: string,
+): Promise<void> {
+  const course = await prisma.course.findFirst({
+    where: { authorId, status: CourseStatus.PUBLISHED },
+  });
+  if (!course) return;
+
+  const now = new Date();
+  await prisma.courseEnrollment.upsert({
+    where: {
+      courseId_userId: { courseId: course.id, userId: subscriberId },
+    },
+    update: {
+      status: CourseEnrollmentStatus.APPROVED,
+      paidAt: now,
+      approvedAt: now,
+      approvedById: authorId,
+    },
+    create: {
+      courseId: course.id,
+      userId: subscriberId,
+      status: CourseEnrollmentStatus.APPROVED,
+      paidAt: now,
+      approvedAt: now,
+      approvedById: authorId,
+    },
+  });
+}
+
 async function grantActiveSubscription(
   subscriberId: string,
   adminId: string,
@@ -133,6 +171,7 @@ async function main(): Promise<void> {
   }
 
   await seedDemoCourses(ids.AUTHOR);
+  await seedApprovedEnrollment(ids.SUBSCRIBER, ids.AUTHOR);
   await grantActiveSubscription(ids.SUBSCRIBER, ids.ADMIN);
 
   console.log('\nSeed completed. Demo accounts:');

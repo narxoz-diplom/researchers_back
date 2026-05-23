@@ -42,6 +42,7 @@ describe('Progress (e2e)', () => {
         email: authorEmail,
         password: 'Password1!',
         fullName: 'Progress Author',
+        role: 'AUTHOR',
       });
     const authorUserId = (authorRegister.body as { user: { id: string } }).user
       .id;
@@ -62,6 +63,7 @@ describe('Progress (e2e)', () => {
         email: `prog-sub-${Date.now()}@test.local`,
         password: 'Password1!',
         fullName: 'Progress Subscriber',
+        role: 'SUBSCRIBER',
       });
     subscriberId = (subRegister.body as { user: { id: string } }).user.id;
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
@@ -88,23 +90,35 @@ describe('Progress (e2e)', () => {
     lessonId = (lessonRes.body as { id: string }).id;
     void (lesson2.body as { id: string }).id;
 
+    const enrollmentRes = await request(app.getHttpServer())
+      .post(`/api/v1/courses/${courseId}/enrollments/request`)
+      .set('Authorization', `Bearer ${subscriberToken}`)
+      .send({});
+    const enrollmentId = (enrollmentRes.body as { id: string }).id;
+
     await request(app.getHttpServer())
-      .post('/api/v1/admin/subscriptions/grant')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ userId: subscriberId, plan: 'BASIC', durationDays: 30 });
+      .post(`/api/v1/courses/${courseId}/enrollments/purchase`)
+      .set('Authorization', `Bearer ${subscriberToken}`);
+
+    await request(app.getHttpServer())
+      .post(
+        `/api/v1/courses/${courseId}/enrollments/${enrollmentId}/approve`,
+      )
+      .set('Authorization', `Bearer ${authorToken}`);
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  it('cannot complete without subscription', async () => {
+  it('cannot complete without approved enrollment', async () => {
     const otherSub = await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send({
         email: `no-sub-${Date.now()}@test.local`,
         password: 'Password1!',
         fullName: 'No Sub',
+        role: 'SUBSCRIBER',
       });
     const token = (otherSub.body as { accessToken: string }).accessToken;
 

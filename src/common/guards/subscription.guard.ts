@@ -10,14 +10,14 @@ import { Role } from '@prisma/client';
 import { Request } from 'express';
 import { LESSONS_REPOSITORY } from '../../modules/lessons/lessons.constants';
 import type { ILessonsRepository } from '../../modules/lessons/lessons.repository.interface';
-import { SubscriptionsService } from '../../modules/subscriptions/subscriptions.service';
+import { EnrollmentsService } from '../../modules/enrollments/enrollments.service';
 import { JwtPayloadUser } from '../decorators/current-user.decorator';
 import { ErrorCode } from '../errors/error-codes';
 
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
   constructor(
-    private readonly subscriptionsService: SubscriptionsService,
+    private readonly enrollmentsService: EnrollmentsService,
     @Inject(LESSONS_REPOSITORY)
     private readonly lessonsRepository: ILessonsRepository,
   ) {}
@@ -51,8 +51,11 @@ export class SubscriptionGuard implements CanActivate {
       return true;
     }
 
-    const active = await this.subscriptionsService.hasActive(user.id);
-    if (!active) {
+    const hasAccess = await this.enrollmentsService.hasApprovedAccess(
+      user.id,
+      lesson.course.id,
+    );
+    if (!hasAccess) {
       throw new ForbiddenException(ErrorCode.SUBSCRIPTION_REQUIRED);
     }
 

@@ -11,12 +11,14 @@ export interface CreateCoursePayload {
   title: string;
   description: string;
   coverUrl?: string | null;
+  priceCents?: number;
 }
 
 export interface UpdateCoursePayload {
   title?: string;
   description?: string;
   coverUrl?: string | null;
+  priceCents?: number;
 }
 
 export type CourseWithAuthor = Prisma.CourseGetPayload<{

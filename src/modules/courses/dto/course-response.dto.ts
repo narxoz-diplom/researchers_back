@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CourseStatus } from '@prisma/client';
+import { MyEnrollmentDto } from '../../enrollments/dto/enrollment-response.dto';
 
 export class CourseAuthorDto {
   @ApiProperty()
@@ -84,6 +85,9 @@ export class CourseListItemDto {
   @ApiProperty()
   lessonsCount: number;
 
+  @ApiProperty({ description: 'Course price in minor currency units (e.g. kopecks)' })
+  priceCents: number;
+
   @ApiProperty()
   createdAt: string;
 }
@@ -94,9 +98,12 @@ export class CourseDetailDto extends CourseListItemDto {
 
   @ApiProperty({
     description:
-      'True for ADMIN, course author, or subscriber with an active subscription',
+      'True for ADMIN, course author, or subscriber with approved course enrollment',
   })
   hasAccess: boolean;
+
+  @ApiPropertyOptional({ type: MyEnrollmentDto, nullable: true })
+  myEnrollment?: MyEnrollmentDto | null;
 }
 
 export class PagedCoursesDto {

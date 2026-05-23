@@ -39,6 +39,7 @@ describe('Auth (e2e)', () => {
         email,
         password: 'Password1!',
         fullName: 'Test User',
+        role: 'SUBSCRIBER',
       })
       .expect(201);
 
