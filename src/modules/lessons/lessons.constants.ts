@@ -1,0 +1,4 @@
+export const LESSONS_REPOSITORY = Symbol('LESSONS_REPOSITORY');
+
+export const MAX_VIDEO_SIZE_BYTES = 500 * 1024 * 1024;
+export const MAX_MATERIAL_SIZE_BYTES = 50 * 1024 * 1024;

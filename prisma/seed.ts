@@ -1,0 +1,149 @@
+import { CourseStatus, PrismaClient, Role, SubscriptionStatus } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient();
+
+interface SeedUser {
+  email: string;
+  password: string;
+  fullName: string;
+  role: Role;
+}
+
+const USERS: SeedUser[] = [
+  {
+    email: process.env.SEED_ADMIN_EMAIL ?? 'admin@researchers.local',
+    password: process.env.SEED_ADMIN_PASSWORD ?? 'Admin123!',
+    fullName: 'Platform Admin',
+    role: Role.ADMIN,
+  },
+  {
+    email: 'author@researchers.local',
+    password: 'Author123!',
+    fullName: 'Анна Авторова',
+    role: Role.AUTHOR,
+  },
+  {
+    email: 'subscriber@researchers.local',
+    password: 'Subscriber123!',
+    fullName: 'Сергей Подписчиков',
+    role: Role.SUBSCRIBER,
+  },
+];
+
+async function upsertUser(data: SeedUser): Promise<string> {
+  const passwordHash = await bcrypt.hash(data.password, 12);
+  const user = await prisma.user.upsert({
+    where: { email: data.email },
+    update: { passwordHash, role: data.role, fullName: data.fullName },
+    create: {
+      email: data.email,
+      passwordHash,
+      fullName: data.fullName,
+      role: data.role,
+    },
+  });
+  return user.id;
+}
+
+async function seedDemoCourses(authorId: string): Promise<void> {
+  const existing = await prisma.course.count({ where: { authorId } });
+  if (existing > 0) return;
+
+  await prisma.course.create({
+    data: {
+      authorId,
+      title: 'Введение в академическое письмо',
+      description:
+        'Базовый курс о структуре научной статьи, работе с источниками и стиле изложения.',
+      status: CourseStatus.PUBLISHED,
+      lessons: {
+        create: [
+          {
+            title: 'Зачем нужна структура',
+            content:
+              'В этом уроке разберём, почему чёткая структура статьи помогает читателю и автору.',
+            orderNumber: 1,
+          },
+          {
+            title: 'Работа с источниками',
+            content: 'Как искать, оценивать и цитировать научные источники.',
+            orderNumber: 2,
+          },
+          {
+            title: 'Стиль и тон',
+            content: 'Принципы научного стиля: точность, нейтральность, краткость.',
+            orderNumber: 3,
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.course.create({
+    data: {
+      authorId,
+      title: 'Методология исследований (черновик)',
+      description: 'Курс о выборе методов исследования. Пока в работе.',
+      status: CourseStatus.DRAFT,
+      lessons: {
+        create: [
+          {
+            title: 'Качественные vs количественные методы',
+            content: 'Сравнение подходов и сферы применения.',
+            orderNumber: 1,
+          },
+        ],
+      },
+    },
+  });
+}
+
+async function grantActiveSubscription(
+  subscriberId: string,
+  adminId: string,
+): Promise<void> {
+  const active = await prisma.subscription.findFirst({
+    where: { userId: subscriberId, status: SubscriptionStatus.ACTIVE },
+  });
+  if (active) return;
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  await prisma.subscription.create({
+    data: {
+      userId: subscriberId,
+      grantedById: adminId,
+      startsAt: now,
+      expiresAt,
+    },
+  });
+}
+
+async function main(): Promise<void> {
+  const ids: Record<Role, string> = {
+    ADMIN: '',
+    AUTHOR: '',
+    SUBSCRIBER: '',
+  };
+
+  for (const user of USERS) {
+    ids[user.role] = await upsertUser(user);
+  }
+
+  await seedDemoCourses(ids.AUTHOR);
+  await grantActiveSubscription(ids.SUBSCRIBER, ids.ADMIN);
+
+  console.log('\nSeed completed. Demo accounts:');
+  for (const user of USERS) {
+    console.log(`  [${user.role.padEnd(10)}] ${user.email}  /  ${user.password}`);
+  }
+}
+
+main()
+  .catch((e: unknown) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => void prisma.$disconnect());
