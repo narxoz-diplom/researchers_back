@@ -17,10 +17,7 @@ import {
 } from './dto/enrollment-response.dto';
 import { ENROLLMENTS_REPOSITORY } from './enrollments.constants';
 import type { IEnrollmentsRepository } from './enrollments.repository.interface';
-import {
-  toCourseEnrollmentDto,
-  toMyEnrollment,
-} from './enrollment.mapper';
+import { toCourseEnrollmentDto, toMyEnrollment } from './enrollment.mapper';
 
 @Injectable()
 export class EnrollmentsService {
@@ -115,7 +112,9 @@ export class EnrollmentsService {
     courseId: string,
     user: JwtPayloadUser,
   ): Promise<CourseEnrollmentDto[]> {
-    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+    });
     if (!course) {
       throw new NotFoundException('Course not found');
     }
@@ -193,7 +192,9 @@ export class EnrollmentsService {
     enrollmentId: string,
     user: JwtPayloadUser,
   ) {
-    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+    });
     if (!course) {
       throw new NotFoundException('Course not found');
     }
@@ -209,7 +210,9 @@ export class EnrollmentsService {
   }
 
   private async getPublishedCourse(courseId: string) {
-    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+    });
     if (!course || course.status !== CourseStatus.PUBLISHED) {
       throw new NotFoundException('Course not found');
     }

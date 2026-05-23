@@ -10,7 +10,6 @@ describe('Progress (e2e)', () => {
   let adminToken: string;
   let authorToken: string;
   let subscriberToken: string;
-  let subscriberId: string;
   let courseId: string;
   let lessonId: string;
 
@@ -65,7 +64,6 @@ describe('Progress (e2e)', () => {
         fullName: 'Progress Subscriber',
         role: 'SUBSCRIBER',
       });
-    subscriberId = (subRegister.body as { user: { id: string } }).user.id;
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
 
     const courseRes = await request(app.getHttpServer())
@@ -101,9 +99,7 @@ describe('Progress (e2e)', () => {
       .set('Authorization', `Bearer ${subscriberToken}`);
 
     await request(app.getHttpServer())
-      .post(
-        `/api/v1/courses/${courseId}/enrollments/${enrollmentId}/approve`,
-      )
+      .post(`/api/v1/courses/${courseId}/enrollments/${enrollmentId}/approve`)
       .set('Authorization', `Bearer ${authorToken}`);
   });
 

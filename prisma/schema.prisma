@@ -38,25 +38,38 @@ enum CourseEnrollmentStatus {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  fullName     String
-  role         Role     @default(SUBSCRIBER)
-  avatarUrl    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  fullName      String
+  role          Role     @default(SUBSCRIBER)
+  avatarUrl     String?
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  courses       Course[]       @relation("CourseAuthor")
-  subscriptions Subscription[] @relation("UserSubscriptions")
-  grantedSubs   Subscription[] @relation("GrantedBy")
-  progress      Progress[]
-  refreshTokens RefreshToken[]
-  enrollments   CourseEnrollment[] @relation("CourseEnrollments")
-  approvedEnrollments CourseEnrollment[] @relation("ApprovedEnrollments")
+  courses                 Course[]                 @relation("CourseAuthor")
+  subscriptions           Subscription[]           @relation("UserSubscriptions")
+  grantedSubs               Subscription[]           @relation("GrantedBy")
+  progress                  Progress[]
+  refreshTokens             RefreshToken[]
+  emailVerificationTokens   EmailVerificationToken[]
+  enrollments               CourseEnrollment[]       @relation("CourseEnrollments")
+  approvedEnrollments       CourseEnrollment[]       @relation("ApprovedEnrollments")
 }
 
 model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
   id        String   @id @default(cuid())
   userId    String
   tokenHash String   @unique

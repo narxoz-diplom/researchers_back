@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -22,8 +23,12 @@ import { AuthService } from './auth.service';
 import { AuthResponseDto, AuthUserDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { LogoutDto } from './dto/logout.dto';
+import { MessageResponseDto } from './dto/message-response.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
+import { RegisterResponseDto } from './dto/register-response.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -34,9 +39,9 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @Post('register')
   @ApiOperation({ summary: 'Register a new subscriber account' })
-  @ApiResponse({ status: 201, type: AuthResponseDto })
+  @ApiResponse({ status: 201, type: RegisterResponseDto })
   @ApiCommonErrors(409)
-  register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
+  register(@Body() dto: RegisterDto): Promise<RegisterResponseDto> {
     return this.authService.register(dto);
   }
 
@@ -50,6 +55,37 @@ export class AuthController {
   @ApiCommonErrors(401)
   login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(dto);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Verify email with token from registration email' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  verifyEmailPost(@Body() dto: VerifyEmailDto): Promise<MessageResponseDto> {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Get('verify-email')
+  @ApiOperation({ summary: 'Verify email via link query parameter' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  verifyEmailGet(@Query('token') token: string): Promise<MessageResponseDto> {
+    return this.authService.verifyEmail(token);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Post('resend-verification')
+  @ApiOperation({ summary: 'Resend email verification link' })
+  @ApiResponse({ status: 200, type: MessageResponseDto })
+  resendVerification(
+    @Body() dto: ResendVerificationDto,
+  ): Promise<MessageResponseDto> {
+    return this.authService.resendVerification(dto.email);
   }
 
   @Public()

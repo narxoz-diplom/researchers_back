@@ -1,17 +1,16 @@
 import { CourseEnrollment } from '@prisma/client';
 import { EnrollmentWithUser } from './enrollments.repository.interface';
-import { CourseEnrollmentDto, MyEnrollmentDto } from './dto/enrollment-response.dto';
+import {
+  CourseEnrollmentDto,
+  MyEnrollmentDto,
+} from './dto/enrollment-response.dto';
 
-export function toMyEnrollment(
-  enrollment: CourseEnrollment,
-): MyEnrollmentDto {
+export function toMyEnrollment(enrollment: CourseEnrollment): MyEnrollmentDto {
   return {
     id: enrollment.id,
     status: enrollment.status,
     ...(enrollment.message ? { message: enrollment.message } : {}),
-    ...(enrollment.paidAt
-      ? { paidAt: enrollment.paidAt.toISOString() }
-      : {}),
+    ...(enrollment.paidAt ? { paidAt: enrollment.paidAt.toISOString() } : {}),
     ...(enrollment.approvedAt
       ? { approvedAt: enrollment.approvedAt.toISOString() }
       : {}),

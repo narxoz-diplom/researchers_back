@@ -41,12 +41,13 @@ async function upsertUser(data: SeedUser): Promise<string> {
   const passwordHash = await bcrypt.hash(data.password, 12);
   const user = await prisma.user.upsert({
     where: { email: data.email },
-    update: { passwordHash, role: data.role, fullName: data.fullName },
+    update: { passwordHash, role: data.role, fullName: data.fullName, emailVerified: true },
     create: {
       email: data.email,
       passwordHash,
       fullName: data.fullName,
       role: data.role,
+      emailVerified: true,
     },
   });
   return user.id;

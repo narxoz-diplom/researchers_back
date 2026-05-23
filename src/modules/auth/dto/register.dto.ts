@@ -17,7 +17,10 @@ export class RegisterDto {
   @MinLength(2)
   fullName: string;
 
-  @ApiProperty({ enum: [Role.SUBSCRIBER, Role.AUTHOR], example: Role.SUBSCRIBER })
+  @ApiProperty({
+    enum: [Role.SUBSCRIBER, Role.AUTHOR],
+    example: Role.SUBSCRIBER,
+  })
   @IsIn([Role.SUBSCRIBER, Role.AUTHOR], { message: 'FORBIDDEN_ROLE' })
   role: Role;
 }

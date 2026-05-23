@@ -85,7 +85,9 @@ export class CourseListItemDto {
   @ApiProperty()
   lessonsCount: number;
 
-  @ApiProperty({ description: 'Course price in minor currency units (e.g. kopecks)' })
+  @ApiProperty({
+    description: 'Course price in minor currency units (e.g. kopecks)',
+  })
   priceCents: number;
 
   @ApiProperty()

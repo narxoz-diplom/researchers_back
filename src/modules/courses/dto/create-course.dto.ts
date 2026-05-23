@@ -26,9 +26,12 @@ export class CreateCourseDto {
     description: 'Cover image URL (Cloudinary secure_url or any public image).',
   })
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' && value.trim() === '' ? null : value,
-  )
+  @Transform(({ value }: { value: unknown }): string | null | undefined => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value === 'string' && value.trim() === '') return null;
+    return typeof value === 'string' ? value : undefined;
+  })
   @ValidateIf((_, value) => value !== null && value !== undefined)
   @IsUrl()
   coverUrl?: string | null;

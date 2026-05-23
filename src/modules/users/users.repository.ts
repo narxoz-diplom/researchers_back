@@ -7,6 +7,7 @@ export interface CreateUserInput {
   passwordHash: string;
   fullName: string;
   role?: Role;
+  emailVerified?: boolean;
 }
 
 export interface ListUsersParams {
@@ -40,7 +41,15 @@ export class UsersRepository {
         passwordHash: data.passwordHash,
         fullName: data.fullName,
         role: data.role ?? Role.SUBSCRIBER,
+        emailVerified: data.emailVerified ?? false,
       },
+    });
+  }
+
+  markEmailVerified(id: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { emailVerified: true },
     });
   }
 
