@@ -107,6 +107,10 @@ export class CoursesService {
     return this.changeStatus(id, CourseStatus.ARCHIVED);
   }
 
+  async draft(id: string): Promise<CourseListItemDto> {
+    return this.changeStatus(id, CourseStatus.DRAFT);
+  }
+
   async delete(id: string): Promise<void> {
     const existing = await this.coursesRepository.findById(id);
     if (!existing) {
