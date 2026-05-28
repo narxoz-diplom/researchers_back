@@ -159,6 +159,7 @@ services:
     build:
       context: ./deploy/backup
     image: researchers-backup:latest
+    pull_policy: build
     container_name: researchers-backup
     <<: *default-restart
     logging: *default-logging
