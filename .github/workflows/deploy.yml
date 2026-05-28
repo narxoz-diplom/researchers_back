@@ -69,19 +69,46 @@ jobs:
     name: Deploy to VPS
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     environment:
       name: production
       url: https://${{ vars.PROD_DOMAIN }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate production environment secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          missing=0
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} is empty. Add it under Settings → Environments → production → Environment secrets (not only Repository secrets)."
+              missing=1
+            fi
+          done
+          if [ "${missing}" -ne 0 ]; then exit 1; fi
+
+      - name: Write SSH deploy key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          sed -i 's/\r$//' ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
       - name: Sync infra files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          key_path: ~/.ssh/deploy_key
+          port: 22
           source: "docker-compose.prod.yml,deploy/"
           target: "/home/${{ secrets.VPS_USER }}/researchers"
           overwrite: true
@@ -92,8 +119,8 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          key_path: ~/.ssh/deploy_key
+          port: 22
           script: |
             set -euo pipefail
             cd /home/${{ secrets.VPS_USER }}/researchers
