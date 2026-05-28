@@ -1,6 +1,18 @@
 node_modules
 # Keep environment variables out of version control
 .env
+.env.*
+!.env.example
+!.env.production.example
 
 /.idea/
 /dist
+
+# Deploy state (created on the VPS by deploy.sh)
+.last-api-tag
+.last-web-tag
+.prev-api-tag
+.prev-web-tag
+
+# Local OS noise
+.DS_Store

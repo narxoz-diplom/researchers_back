@@ -1,3 +1,13 @@
+# Local "full-stack" dev compose: Postgres + API in one shot.
+# For production deployment use docker-compose.prod.yml.
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose up --build
+#
+# To seed demo data:
+#   docker compose run --rm api npm run seed
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -28,8 +38,8 @@ services:
       NODE_ENV: production
       PORT: 8080
       DATABASE_URL: postgresql://researchers:researchers@postgres:5432/researchers
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_in_production}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_too_in_production}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required (see .env.example)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required (see .env.example)}
       JWT_ACCESS_TTL: 15m
       JWT_REFRESH_TTL: 7d
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
@@ -42,7 +52,6 @@ services:
       - '8080:8080'
     command: >
       sh -c "npx prisma migrate deploy &&
-             npm run seed &&
              node dist/main.js"
 
 volumes:

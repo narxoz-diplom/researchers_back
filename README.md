@@ -47,16 +47,34 @@ npm run start:dev
 
 У автора есть демо-курсы; у подписчика в seed — одобренная заявка на опубликованный курс.
 
-## Полный запуск в Docker
+## Полный запуск в Docker (локально)
 
 ```bash
 cp .env.example .env
 # задайте JWT_ACCESS_SECRET и JWT_REFRESH_SECRET
 
 docker compose up --build
+
+# при необходимости создать демо-данные:
+docker compose run --rm api npm run seed
 ```
 
-Поднимаются PostgreSQL и API; миграции и seed выполняются автоматически.
+Поднимаются PostgreSQL и API; миграции применяются автоматически.
+Seed запускается отдельной командой — намеренно не на каждом старте.
+
+## Production-деплой на VPS
+
+Полный гайд: [`deploy/README.md`](deploy/README.md).
+
+Кратко:
+- Production-стек: [`docker-compose.prod.yml`](docker-compose.prod.yml) +
+  [`deploy/nginx/`](deploy/nginx/) + [`deploy/backup/`](deploy/backup/).
+- Один-VPS архитектура: edge nginx + TLS (Let's Encrypt), API, web, Postgres,
+  encrypted PostgreSQL backups (`pg_dump | zstd | age`).
+- Автодеплой: [`/.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+  собирает образ, публикует в GHCR и катит на VPS по SSH.
+- Резервные копии: ежедневный шифрованный дамп выгружается в GitHub Actions
+  artifacts через [`/.github/workflows/backup.yml`](.github/workflows/backup.yml).
 
 ## Скрипты
 

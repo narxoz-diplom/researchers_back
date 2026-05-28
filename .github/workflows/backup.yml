@@ -1,0 +1,88 @@
+name: Pull encrypted backup
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # daily at 04:00 UTC (1h after the on-VPS backup)
+  workflow_dispatch:
+
+concurrency:
+  group: backup-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pull:
+    name: Pull and archive latest backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger on-VPS backup + stage on host
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd /home/${{ secrets.VPS_USER }}/researchers
+            docker compose --env-file .env.production -f docker-compose.prod.yml \
+              exec -T backup /usr/local/bin/backup.sh
+            mkdir -p ~/backup-stage
+            docker compose --env-file .env.production -f docker-compose.prod.yml \
+              cp backup:/backups/latest.sql.zst.age ~/backup-stage/latest.sql.zst.age
+            chmod 600 ~/backup-stage/latest.sql.zst.age
+
+      - name: Copy latest backup from VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "backup-stage/latest.sql.zst.age"
+          target: "./remote"
+
+      - name: Rename and inspect
+        id: meta
+        run: |
+          set -euo pipefail
+          ls -lah ./remote/backup-stage
+          TS="$(date -u +%Y%m%d-%H%M%S)"
+          mv ./remote/backup-stage/latest.sql.zst.age "./remote/researchers-${TS}.sql.zst.age"
+          {
+            echo "filename=researchers-${TS}.sql.zst.age"
+            echo "timestamp=${TS}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload as workflow artifact (already AGE-encrypted)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pg-backup-${{ steps.meta.outputs.timestamp }}
+          path: ./remote/${{ steps.meta.outputs.filename }}
+          if-no-files-found: error
+          retention-days: 60
+          compression-level: 0
+
+      - name: Cleanup VPS staging
+        if: always()
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            rm -rf ~/backup-stage
+
+      - name: Summary
+        run: |
+          {
+            echo "Backup ${{ steps.meta.outputs.filename }} uploaded as encrypted artifact."
+            echo ""
+            echo "These artifacts are AGE-encrypted. To restore:"
+            echo "  1. Download the artifact."
+            echo "  2. Decrypt with the matching age private key (kept offline)."
+            echo "  3. Decompress with zstd and pipe into psql."
+          } >> "$GITHUB_STEP_SUMMARY"

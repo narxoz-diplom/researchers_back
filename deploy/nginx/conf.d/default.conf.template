@@ -1,0 +1,77 @@
+# Rendered by edge container entrypoint: envsubst replaces ${DOMAIN}.
+# Single ${DOMAIN} hosts both the SPA frontend and the API behind /api/v1.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN} www.${DOMAIN};
+
+    location /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://${DOMAIN}$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name www.${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    include /etc/nginx/snippets/ssl-params.conf;
+
+    return 301 https://${DOMAIN}$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    include /etc/nginx/snippets/ssl-params.conf;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    location /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    # Auth endpoints: stricter rate limit on top of API throttler.
+    location ~ ^/api/v1/(auth|users) {
+        limit_req zone=api_auth burst=20 nodelay;
+        include /etc/nginx/snippets/proxy-params.conf;
+        proxy_pass http://api_upstream;
+    }
+
+    location /api/v1/ {
+        include /etc/nginx/snippets/proxy-params.conf;
+        proxy_pass http://api_upstream;
+    }
+
+    # Swagger /docs is intentionally NOT exposed publicly. Uncomment and adjust
+    # the allowlist below to enable it for office IPs only.
+    # location /docs {
+    #     allow 203.0.113.0/24;
+    #     deny all;
+    #     include /etc/nginx/snippets/proxy-params.conf;
+    #     proxy_pass http://api_upstream;
+    # }
+
+    location / {
+        include /etc/nginx/snippets/proxy-params.conf;
+        proxy_pass http://web_upstream;
+    }
+}

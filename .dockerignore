@@ -1,6 +1,7 @@
 node_modules
 dist
 .git
+.github
 .env
 .env.*
 !.env.example
@@ -10,3 +11,9 @@ coverage
 tasks
 test
 .husky
+deploy
+docker-compose*.yml
+.last-api-tag
+.last-web-tag
+.prev-api-tag
+.prev-web-tag
