@@ -22,6 +22,12 @@ ENV_FILE=".env.production"
 # shellcheck disable=SC1090
 set -a; source "${ENV_FILE}"; set +a
 
+# GitHub Actions sets IMAGE_OWNER from repository_owner (org slug). Overrides .env
+# when the VPS file still has a personal username (e.g. zhubanyshzh vs narxoz-diplom).
+if [[ -n "${CI_IMAGE_OWNER:-}" ]]; then
+  IMAGE_OWNER="${CI_IMAGE_OWNER}"
+fi
+
 NEW_API_TAG="${1:-${API_IMAGE_TAG:-latest}}"
 NEW_WEB_TAG="${2:-${WEB_IMAGE_TAG:-latest}}"
 

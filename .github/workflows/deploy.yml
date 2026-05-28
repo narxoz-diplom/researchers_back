@@ -116,6 +116,7 @@ jobs:
             cd /home/${{ secrets.VPS_USER }}/researchers
             chmod +x deploy/scripts/*.sh
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ needs.build-and-push.outputs.owner_lower }}" --password-stdin
-            bash deploy/scripts/deploy.sh \
+            CI_IMAGE_OWNER="${{ needs.build-and-push.outputs.owner_lower }}" \
+              bash deploy/scripts/deploy.sh \
               "${{ needs.build-and-push.outputs.image_tag }}" \
               "${WEB_IMAGE_TAG:-latest}"
