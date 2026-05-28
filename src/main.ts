@@ -1,11 +1,12 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
 
@@ -14,11 +15,7 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   if (process.env.TRUST_PROXY) {
-    const httpAdapter = app.getHttpAdapter();
-    const instance = httpAdapter.getInstance?.();
-    if (instance?.set) {
-      instance.set('trust proxy', process.env.TRUST_PROXY);
-    }
+    app.set('trust proxy', process.env.TRUST_PROXY);
   }
 
   const corsOrigins = process.env.CORS_ORIGINS?.split(',')
@@ -30,7 +27,8 @@ async function bootstrap() {
   });
 
   const swaggerEnabled =
-    process.env.SWAGGER_ENABLED === 'true' || process.env.NODE_ENV !== 'production';
+    process.env.SWAGGER_ENABLED === 'true' ||
+    process.env.NODE_ENV !== 'production';
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('researchers API')
