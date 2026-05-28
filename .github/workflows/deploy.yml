@@ -16,17 +16,17 @@ concurrency:
   group: deploy-api-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/researchers-api
 
 jobs:
   build-and-push:
     name: Build & push API image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
       owner_lower: ${{ steps.meta.outputs.owner_lower }}
@@ -47,10 +47,11 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
+          registry: ghcr.io
+          username: ${{ steps.meta.outputs.owner_lower }}
           password: ${{ vars.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
@@ -62,8 +63,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner_lower }}/researchers-api:${{ steps.meta.outputs.image_tag }}
-            ${{ env.REGISTRY }}/${{ steps.meta.outputs.owner_lower }}/researchers-api:latest
+            ghcr.io/${{ steps.meta.outputs.owner_lower }}/researchers-api:${{ steps.meta.outputs.image_tag }}
+            ghcr.io/${{ steps.meta.outputs.owner_lower }}/researchers-api:latest
 
   deploy:
     name: Deploy to VPS
@@ -83,11 +84,12 @@ jobs:
           VPS_HOST: ${{ vars.VPS_HOST }}
           VPS_USER: ${{ vars.VPS_USER }}
           VPS_SSH_KEY: ${{ vars.VPS_SSH_KEY }}
+          GHCR_PAT: ${{ vars.GHCR_PAT }}
         run: |
           missing=0
-          for name in VPS_HOST VPS_USER VPS_SSH_KEY; do
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY GHCR_PAT; do
             if [ -z "${!name}" ]; then
-              echo "::error::${name} is empty. Add it under Settings → Environments → production → Environment secrets (not only Repository secrets)."
+              echo "::error::${name} is empty. Add it under Settings → Environments → production → Environment secrets."
               missing=1
             fi
           done
@@ -116,11 +118,15 @@ jobs:
 
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_PAT: ${{ vars.GHCR_PAT }}
+          GHCR_USER: ${{ needs.build-and-push.outputs.owner_lower }}
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
           key_path: ~/.ssh/deploy_key
           port: 22
+          envs: GHCR_PAT,GHCR_USER
           script: |
             set -euo pipefail
             cd /home/${{ vars.VPS_USER }}/researchers
