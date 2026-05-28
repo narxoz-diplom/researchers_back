@@ -156,7 +156,7 @@ In **both** repos (`researchers_back`, `researchers_front`), under
 | `VPS_USER`       | `deploy`                                   |
 | `VPS_SSH_KEY`    | OpenSSH **private** key matching the deploy user's `authorized_keys` |
 | `VPS_PORT`       | SSH port (default `22`)                    |
-| `PROD_DOMAIN`    | `example.com`                              |
+| `PROD_DOMAIN` (variable) | `example.com`                      |
 
 In **`researchers_front`** only, also add a variable:
 
