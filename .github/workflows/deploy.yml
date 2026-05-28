@@ -92,21 +92,12 @@ jobs:
           done
           if [ "${missing}" -ne 0 ]; then exit 1; fi
 
-      - name: Write SSH deploy key
-        env:
-          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
-          sed -i 's/\r$//' ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-
       - name: Sync infra files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key_path: ~/.ssh/deploy_key
+          key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           source: "docker-compose.prod.yml,deploy/"
           target: "/home/${{ secrets.VPS_USER }}/researchers"
@@ -118,7 +109,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
-          key_path: ~/.ssh/deploy_key
+          key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           script: |
             set -euo pipefail
