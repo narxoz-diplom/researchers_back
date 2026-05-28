@@ -12,6 +12,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate \
  && npm run build \
+ && test -f dist/prisma/seed.js \
  && npm prune --omit=dev
 
 FROM node:20-alpine AS runtime
