@@ -111,6 +111,16 @@ export class CoursesController {
 
   @Roles(Role.AUTHOR, Role.ADMIN)
   @UseGuards(CourseOwnerGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/draft')
+  @ApiOperation({ summary: 'Revert course to draft' })
+  @ApiResponse({ status: 200, type: CourseListItemDto })
+  draft(@Param('id') id: string): Promise<CourseListItemDto> {
+    return this.coursesService.draft(id);
+  }
+
+  @Roles(Role.AUTHOR, Role.ADMIN)
+  @UseGuards(CourseOwnerGuard)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete course and related media' })
