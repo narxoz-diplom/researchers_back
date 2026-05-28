@@ -51,28 +51,36 @@ API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
   "${COMPOSE[@]}" run --rm migrate
 
-echo "==> Recreating api + web"
+echo "==> Starting / updating stack"
 API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
-  "${COMPOSE[@]}" up -d --remove-orphans api web
+  "${COMPOSE[@]}" up -d --remove-orphans
 
-echo "==> Reloading edge"
-"${COMPOSE[@]}" up -d edge backup postgres certbot
-
-echo "==> Waiting for API healthcheck"
-for i in $(seq 1 30); do
-  if curl -fsS "https://${DOMAIN}/api/v1/health" >/dev/null 2>&1 \
-       || curl -fsSk "https://${DOMAIN}/api/v1/health" >/dev/null 2>&1; then
-    echo "    API healthy (attempt ${i})"
+echo "==> Waiting for API healthcheck (inside container)"
+healthy=0
+for i in $(seq 1 45); do
+  if API_IMAGE_TAG="${NEW_API_TAG}" WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
+    "${COMPOSE[@]}" exec -T api curl -fsS http://127.0.0.1:8080/api/v1/health >/dev/null 2>&1; then
+    echo "    API healthy (internal, attempt ${i})"
+    healthy=1
     break
-  fi
-  if [[ ${i} -eq 30 ]]; then
-    echo "ERROR: API did not become healthy in time" >&2
-    "${COMPOSE[@]}" logs --tail=80 api edge || true
-    exit 1
   fi
   sleep 2
 done
+
+if [[ "${healthy}" -ne 1 ]]; then
+  echo "ERROR: API did not become healthy in time" >&2
+  "${COMPOSE[@]}" logs --tail=80 api edge || true
+  exit 1
+fi
+
+if curl -fsS "https://${DOMAIN}/api/v1/health" >/dev/null 2>&1 \
+  || curl -fsSk "https://${DOMAIN}/api/v1/health" >/dev/null 2>&1; then
+  echo "    Public HTTPS healthcheck OK"
+else
+  echo "WARNING: internal API is up but https://${DOMAIN}/api/v1/health failed from host" >&2
+  echo "         (often staging TLS cert or edge still restarting — verify in browser)" >&2
+fi
 
 echo "==> Pruning unused docker images"
 docker image prune -f >/dev/null || true
