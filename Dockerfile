@@ -33,4 +33,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8080/api/v1/health || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "dist/main.js"]
+# nest build (module nodenext) emits dist/src/main.js
+CMD ["node", "dist/src/main.js"]
