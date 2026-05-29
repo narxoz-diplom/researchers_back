@@ -56,6 +56,12 @@ API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
   "${COMPOSE[@]}" up -d --remove-orphans
 
+# Edge renders nginx from host-mounted templates at container start; recreate so
+# deploy/nginx changes (e.g. proxy keepalive) apply without a manual step.
+API_IMAGE_TAG="${NEW_API_TAG}" \
+WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
+  "${COMPOSE[@]}" up -d --force-recreate edge
+
 echo "==> Waiting for API healthcheck (inside container)"
 healthy=0
 for i in $(seq 1 45); do

@@ -52,12 +52,12 @@ server {
     # Auth endpoints: stricter rate limit on top of API throttler.
     location ~ ^/api/v1/(auth|users) {
         limit_req zone=api_auth burst=20 nodelay;
-        include /etc/nginx/snippets/proxy-params.conf;
+        include /etc/nginx/snippets/proxy-params-api.conf;
         proxy_pass http://api_upstream;
     }
 
     location /api/v1/ {
-        include /etc/nginx/snippets/proxy-params.conf;
+        include /etc/nginx/snippets/proxy-params-api.conf;
         proxy_pass http://api_upstream;
     }
 
