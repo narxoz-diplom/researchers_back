@@ -77,7 +77,9 @@ export class MediaController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (req, _file, cb) => {
-          const folder = String((req.body as { folder?: string })?.folder ?? '');
+          const folder = String(
+            (req.body as { folder?: string })?.folder ?? '',
+          );
           if (!/^(courses|avatars)\/[a-zA-Z0-9/_-]+$/.test(folder)) {
             cb(new Error('Invalid upload folder'), '');
             return;

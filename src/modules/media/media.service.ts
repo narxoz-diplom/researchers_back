@@ -134,7 +134,7 @@ export class MediaService implements OnModuleInit {
       relativePath = `${dto.folder}/${filename}`;
       const fullPath = join(UPLOAD_ROOT, relativePath);
       await mkdir(join(UPLOAD_ROOT, dto.folder), { recursive: true });
-      await writeFile(fullPath, file.buffer!);
+      await writeFile(fullPath, file.buffer);
     }
 
     const ext = extname(relativePath);
@@ -182,7 +182,8 @@ export class MediaService implements OnModuleInit {
     if (fromEnv) {
       return fromEnv.replace(/\/$/, '');
     }
-    const host = req.get('host') ?? `localhost:${this.configService.get('PORT') ?? 8080}`;
+    const host =
+      req.get('host') ?? `localhost:${this.configService.get('PORT') ?? 8080}`;
     const protocol = req.protocol === 'https' ? 'https' : 'http';
     return `${protocol}://${host}`;
   }
