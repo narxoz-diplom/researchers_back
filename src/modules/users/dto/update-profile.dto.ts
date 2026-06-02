@@ -13,6 +13,6 @@ export class UpdateProfileDto {
     description: 'Cloudinary secure_url after signed upload',
   })
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   avatarUrl?: string;
 }

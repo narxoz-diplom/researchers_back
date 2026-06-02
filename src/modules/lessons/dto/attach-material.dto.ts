@@ -11,7 +11,7 @@ export class AttachMaterialDto {
   cloudinaryPublicId: string;
 
   @ApiProperty()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   url: string;
 
   @ApiProperty()

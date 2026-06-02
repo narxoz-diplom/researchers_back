@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   OnModuleInit,
@@ -6,9 +7,29 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
+import { randomBytes } from 'crypto';
+import { mkdir, unlink, writeFile } from 'fs/promises';
+import { extname, join, relative } from 'path';
+import type { Request } from 'express';
+import { LocalUploadDto } from './dto/local-upload.dto';
+import { LocalUploadResponseDto } from './dto/local-upload-response.dto';
 import { SignResponseDto } from './dto/sign-response.dto';
 import { SignUploadDto } from './dto/sign-upload.dto';
 import { UploadResourceType } from './media.types';
+
+const UPLOAD_ROOT = join(process.cwd(), 'uploads');
+
+const MAX_BYTES: Record<UploadResourceType, number> = {
+  [UploadResourceType.IMAGE]: 5 * 1024 * 1024,
+  [UploadResourceType.VIDEO]: 500 * 1024 * 1024,
+  [UploadResourceType.RAW]: 25 * 1024 * 1024,
+};
+
+const ALLOWED_MIME: Record<UploadResourceType, RegExp> = {
+  [UploadResourceType.IMAGE]: /^image\/(jpeg|png|webp)$/,
+  [UploadResourceType.VIDEO]: /^video\//,
+  [UploadResourceType.RAW]: /.*/,
+};
 
 @Injectable()
 export class MediaService implements OnModuleInit {
@@ -31,9 +52,13 @@ export class MediaService implements OnModuleInit {
       this.configured = true;
     } else {
       this.logger.warn(
-        'Cloudinary is not configured; signed uploads and CDN deletes are disabled',
+        'Cloudinary is not configured; using local uploads in ./uploads (dev only)',
       );
     }
+  }
+
+  isCloudinaryConfigured(): boolean {
+    return this.configured;
   }
 
   sign(input: SignUploadDto): SignResponseDto {
@@ -72,6 +97,94 @@ export class MediaService implements OnModuleInit {
       resourceType: UploadResourceType.IMAGE,
       folder: `avatars/${userId}`,
     });
+  }
+
+  async uploadLocal(
+    file: Express.Multer.File | undefined,
+    dto: LocalUploadDto,
+    req: Request,
+  ): Promise<LocalUploadResponseDto> {
+    if (this.configured) {
+      throw new BadRequestException(
+        'Cloudinary is configured; use POST /media/sign for uploads',
+      );
+    }
+    if (!file || (!file.path && !file.buffer?.length)) {
+      throw new BadRequestException('file is required');
+    }
+
+    const maxBytes = MAX_BYTES[dto.resourceType];
+    if (file.size > maxBytes) {
+      await this.removeUploadedFile(file);
+      throw new BadRequestException(
+        `File exceeds ${Math.round(maxBytes / (1024 * 1024))}MB limit`,
+      );
+    }
+    if (!ALLOWED_MIME[dto.resourceType].test(file.mimetype)) {
+      await this.removeUploadedFile(file);
+      throw new BadRequestException('Unsupported file type');
+    }
+
+    let relativePath: string;
+    if (file.path) {
+      relativePath = relative(UPLOAD_ROOT, file.path).replace(/\\/g, '/');
+    } else {
+      const ext = this.defaultExtension(dto.resourceType, file.originalname);
+      const filename = `${Date.now()}-${randomBytes(4).toString('hex')}${ext}`;
+      relativePath = `${dto.folder}/${filename}`;
+      const fullPath = join(UPLOAD_ROOT, relativePath);
+      await mkdir(join(UPLOAD_ROOT, dto.folder), { recursive: true });
+      await writeFile(fullPath, file.buffer!);
+    }
+
+    const ext = extname(relativePath);
+
+    const baseUrl = this.publicBaseUrl(req);
+    const secure_url = `${baseUrl}/api/v1/media/files/${relativePath
+      .split('/')
+      .map(encodeURIComponent)
+      .join('/')}`;
+
+    return {
+      public_id: relativePath.replace(/\.[^.]+$/, ''),
+      secure_url,
+      bytes: file.size,
+      format: ext.replace('.', '') || undefined,
+      resource_type: dto.resourceType,
+    };
+  }
+
+  private defaultExtension(
+    resourceType: UploadResourceType,
+    originalName: string,
+  ): string {
+    const fromName = extname(originalName);
+    if (fromName) {
+      return fromName;
+    }
+    if (resourceType === UploadResourceType.IMAGE) {
+      return '.jpg';
+    }
+    if (resourceType === UploadResourceType.VIDEO) {
+      return '.mp4';
+    }
+    return '';
+  }
+
+  private async removeUploadedFile(file: Express.Multer.File): Promise<void> {
+    if (file.path) {
+      await unlink(file.path).catch(() => undefined);
+    }
+  }
+
+  private publicBaseUrl(req: Request): string {
+    const fromEnv = this.configService.get<string>('PUBLIC_API_URL')?.trim();
+    if (fromEnv) {
+      return fromEnv.replace(/\/$/, '');
+    }
+    const host = req.get('host') ?? `localhost:${this.configService.get('PORT') ?? 8080}`;
+    const protocol = req.protocol === 'https' ? 'https' : 'http';
+    return `${protocol}://${host}`;
   }
 
   extractPublicIdFromUrl(url: string): string | null {

@@ -33,7 +33,7 @@ export class CreateCourseDto {
     return typeof value === 'string' ? value : undefined;
   })
   @ValidateIf((_, value) => value !== null && value !== undefined)
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   coverUrl?: string | null;
 
   @ApiPropertyOptional({

@@ -11,7 +11,7 @@ export class AttachVideoDto {
   cloudinaryPublicId: string;
 
   @ApiProperty()
-  @IsUrl()
+  @IsUrl({ require_tld: false })
   url: string;
 
   @ApiProperty({ minimum: 0 })

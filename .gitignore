@@ -14,6 +14,9 @@ node_modules
 .prev-api-tag
 .prev-web-tag
 
+# Local dev uploads (when Cloudinary is not configured)
+/uploads
+
 # Local OS noise
 .DS_Store
 .DS_Store
