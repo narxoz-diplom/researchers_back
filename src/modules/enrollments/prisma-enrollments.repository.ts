@@ -26,22 +26,12 @@ export class PrismaEnrollmentsRepository implements IEnrollmentsRepository {
     });
   }
 
-  create(data: {
-    courseId: string;
-    userId: string;
-    message?: string;
-    status?: CourseEnrollmentStatus;
-    paidAt?: Date;
-    approvedAt?: Date;
-  }) {
+  create(data: { courseId: string; userId: string; message?: string }) {
     return this.prisma.courseEnrollment.create({
       data: {
         courseId: data.courseId,
         userId: data.userId,
         ...(data.message ? { message: data.message } : {}),
-        ...(data.status ? { status: data.status } : {}),
-        ...(data.paidAt ? { paidAt: data.paidAt } : {}),
-        ...(data.approvedAt ? { approvedAt: data.approvedAt } : {}),
       },
     });
   }

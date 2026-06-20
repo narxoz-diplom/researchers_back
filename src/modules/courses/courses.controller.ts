@@ -20,9 +20,11 @@ import {
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
+import { OptionalUser } from '../../common/decorators/optional-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CourseOwnerGuard } from '../../common/guards/course-owner.guard';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { CoursesService } from './courses.service';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { ListCoursesQueryDto } from './dto/list-courses-query.dto';
@@ -31,7 +33,6 @@ import {
   CourseListItemDto,
   PagedCoursesDto,
 } from './dto/course-response.dto';
-import { CoursePreviewDto } from './dto/course-preview.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 
 @ApiTags('courses')
@@ -57,23 +58,14 @@ export class CoursesController {
   }
 
   @Public()
-  @Get(':id/preview')
-  @ApiOperation({
-    summary: 'Public course preview (first video + lesson list)',
-  })
-  @ApiResponse({ status: 200, type: CoursePreviewDto })
-  @ApiResponse({ status: 404, description: 'Course not found' })
-  getPreview(@Param('id') id: string): Promise<CoursePreviewDto> {
-    return this.coursesService.getPreview(id);
-  }
-
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
-  @ApiOperation({ summary: 'Course details with lesson summaries' })
+  @ApiOperation({ summary: 'Course details (public for published; optional auth)' })
   @ApiResponse({ status: 200, type: CourseDetailDto })
   @ApiResponse({ status: 404, description: 'Course not found' })
   getById(
     @Param('id') id: string,
-    @CurrentUser() user: JwtPayloadUser,
+    @OptionalUser() user: JwtPayloadUser | null,
   ): Promise<CourseDetailDto> {
     return this.coursesService.getById(id, user);
   }

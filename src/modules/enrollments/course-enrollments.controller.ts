@@ -48,7 +48,7 @@ export class CourseEnrollmentsController {
   @Roles(Role.SUBSCRIBER)
   @HttpCode(HttpStatus.OK)
   @Post('purchase')
-  @ApiOperation({ summary: 'Purchase course and grant immediate access' })
+  @ApiOperation({ summary: 'Mark course as purchased (demo payment)' })
   @ApiResponse({ status: 200, type: MyEnrollmentDto })
   purchase(
     @Param('courseId') courseId: string,

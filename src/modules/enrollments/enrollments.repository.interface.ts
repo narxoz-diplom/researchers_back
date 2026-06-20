@@ -24,9 +24,6 @@ export interface IEnrollmentsRepository {
     courseId: string;
     userId: string;
     message?: string;
-    status?: CourseEnrollmentStatus;
-    paidAt?: Date;
-    approvedAt?: Date;
   }): Promise<CourseEnrollment>;
 
   update(

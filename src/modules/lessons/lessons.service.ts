@@ -10,8 +10,6 @@ import type { JwtPayloadUser } from '../../common/decorators/current-user.decora
 import { ErrorCode } from '../../common/errors/error-codes';
 import { COURSES_REPOSITORY } from '../courses/courses.constants';
 import type { ICoursesRepository } from '../courses/courses.repository.interface';
-import { EnrollmentsService } from '../enrollments/enrollments.service';
-import { PurchasesService } from '../purchases/purchases.service';
 import { MediaService } from '../media/media.service';
 import { UploadResourceType } from '../media/media.types';
 import {
@@ -35,12 +33,9 @@ import { UpdateVideoDto } from './dto/update-video.dto';
 import {
   toLessonDetail,
   toLessonMaterial,
-  toLessonPartialDetail,
-  toLessonPreviewDetail,
   toLessonSummary,
   toLessonVideo,
 } from './lessons.mapper';
-import { CoursePricingService } from '../courses/course-pricing.service';
 
 @Injectable()
 export class LessonsService {
@@ -49,10 +44,7 @@ export class LessonsService {
     private readonly lessonsRepository: ILessonsRepository,
     @Inject(COURSES_REPOSITORY)
     private readonly coursesRepository: ICoursesRepository,
-    private readonly enrollmentsService: EnrollmentsService,
-    private readonly purchasesService: PurchasesService,
     private readonly mediaService: MediaService,
-    private readonly coursePricingService: CoursePricingService,
   ) {}
 
   async listByCourse(
@@ -69,56 +61,12 @@ export class LessonsService {
     return lessons.map(toLessonSummary);
   }
 
-  async getById(
-    id: string,
-    user: JwtPayloadUser,
-  ): Promise<LessonDetailResponseDto> {
+  async getById(id: string): Promise<LessonDetailResponseDto> {
     const lesson = await this.lessonsRepository.findById(id);
     if (!lesson) {
       throw new NotFoundException('Lesson not found');
     }
-
-    const hasFullAccess = await this.resolveLessonFullAccess(lesson, user);
-    if (hasFullAccess) {
-      return toLessonDetail(lesson);
-    }
-
-    const ownedVideoIds = await this.purchasesService.getOwnedVideoIds(
-      user.id,
-      lesson.id,
-    );
-    if (ownedVideoIds.length > 0) {
-      return toLessonPartialDetail(lesson, ownedVideoIds);
-    }
-
-    return toLessonPreviewDetail(lesson);
-  }
-
-  private async resolveLessonFullAccess(
-    lesson: NonNullable<Awaited<ReturnType<ILessonsRepository['findById']>>>,
-    user: JwtPayloadUser,
-  ): Promise<boolean> {
-    if (user.role === Role.ADMIN || lesson.course.authorId === user.id) {
-      return true;
-    }
-
-    const hasEnrollment = await this.enrollmentsService.hasApprovedAccess(
-      user.id,
-      lesson.courseId,
-    );
-    if (hasEnrollment) {
-      return true;
-    }
-
-    const hasLessonPurchase = await this.purchasesService.hasLessonPurchase(
-      user.id,
-      lesson.id,
-    );
-    if (hasLessonPurchase) {
-      return true;
-    }
-
-    return false;
+    return toLessonDetail(lesson);
   }
 
   async create(
@@ -134,7 +82,6 @@ export class LessonsService {
         content: dto.content ?? '',
         orderNumber: dto.orderNumber,
       });
-      await this.coursePricingService.syncLessonPrices(courseId);
       return toLessonDetail(lesson);
     } catch (error) {
       if (
@@ -188,7 +135,6 @@ export class LessonsService {
       UploadResourceType.RAW,
     );
     await this.lessonsRepository.delete(id);
-    await this.coursePricingService.syncLessonPrices(lesson.courseId);
   }
 
   async reorder(
@@ -246,8 +192,6 @@ export class LessonsService {
       orderNumber,
     });
 
-    await this.coursePricingService.syncLessonPrices(lesson.courseId);
-
     return {
       lessonId: video.lessonId,
       cloudinaryPublicId: video.cloudinaryPublicId,
@@ -282,14 +226,11 @@ export class LessonsService {
       throw new NotFoundException('Video not found');
     }
 
-    const courseId = video.lesson.course.id;
-
     await this.mediaService.deleteByPublicIds(
       [video.cloudinaryPublicId],
       UploadResourceType.VIDEO,
     );
     await this.lessonsRepository.deleteVideo(id);
-    await this.coursePricingService.syncLessonPrices(courseId);
   }
 
   async attachMaterial(

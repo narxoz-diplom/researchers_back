@@ -16,7 +16,22 @@ Backend учебной платформы **researchers** — курсы с ру
 cp .env.example .env
 ```
 
-Заполните `JWT_*`, при необходимости `CLOUDINARY_*` и `SEED_ADMIN_*`.
+Заполните `JWT_*`, при необходимости `CLOUDINARY_*`, `TELEGRAM_*` и `SEED_ADMIN_*`.
+
+### Telegram: уведомления о заявках на курсы
+
+1. Создайте бота в [@BotFather](https://t.me/BotFather) → скопируйте **токен** в `TELEGRAM_BOT_TOKEN`.
+2. **Обязательно** откройте бота в Telegram и нажмите **Start** (или отправьте `/start`). Без этого API вернёт `chat not found`.
+3. Узнайте **chat id**:
+   - личный чат: откройте `https://api.telegram.org/bot<TOKEN>/getUpdates` и найдите `"chat":{"id":123456789`
+   - группа: добавьте бота в группу, отправьте сообщение, снова `getUpdates` — id группы (отрицательное число)
+4. Добавьте в `.env`:
+   ```env
+   TELEGRAM_BOT_TOKEN=123456:ABC...
+   TELEGRAM_CHAT_ID=123456789
+   ```
+
+При каждой новой (и повторной) заявке `POST /courses/:id/enrollments/request` и при демо-оплате `POST .../purchase` бот отправит email, название курса и дату.
 
 ## Локальная разработка
 

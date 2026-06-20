@@ -18,6 +18,7 @@ import {
 import { ENROLLMENTS_REPOSITORY } from './enrollments.constants';
 import type { IEnrollmentsRepository } from './enrollments.repository.interface';
 import { toCourseEnrollmentDto, toMyEnrollment } from './enrollment.mapper';
+import { TelegramService } from '../telegram/telegram.service';
 
 @Injectable()
 export class EnrollmentsService {
@@ -25,6 +26,7 @@ export class EnrollmentsService {
     @Inject(ENROLLMENTS_REPOSITORY)
     private readonly enrollmentsRepository: IEnrollmentsRepository,
     private readonly prisma: PrismaService,
+    private readonly telegramService: TelegramService,
   ) {}
 
   async hasApprovedAccess(userId: string, courseId: string): Promise<boolean> {
@@ -67,6 +69,7 @@ export class EnrollmentsService {
           approvedAt: null,
           approvedBy: { disconnect: true },
         });
+        this.notifyEnrollment(user.email, course.title, updated.updatedAt, 'resubmit');
         return toMyEnrollment(updated);
       }
       throw new ConflictException(ErrorCode.ENROLLMENT_EXISTS);
@@ -77,6 +80,7 @@ export class EnrollmentsService {
       userId: user.id,
       message: dto.message,
     });
+    this.notifyEnrollment(user.email, course.title, enrollment.createdAt, 'request');
     return toMyEnrollment(enrollment);
   }
 
@@ -84,44 +88,34 @@ export class EnrollmentsService {
     courseId: string,
     user: JwtPayloadUser,
   ): Promise<MyEnrollmentDto> {
-    return this.grantCourseAccess(courseId, user);
-  }
-
-  async grantCourseAccess(
-    courseId: string,
-    user: JwtPayloadUser,
-  ): Promise<MyEnrollmentDto> {
     this.assertSubscriber(user);
-    await this.getPublishedCourse(courseId);
+    const course = await this.getPublishedCourse(courseId);
 
-    const existing = await this.enrollmentsRepository.findByCourseAndUser(
+    const enrollment = await this.enrollmentsRepository.findByCourseAndUser(
       courseId,
       user.id,
     );
-    const now = new Date();
-
-    if (existing?.status === CourseEnrollmentStatus.APPROVED) {
-      return toMyEnrollment(existing);
+    if (!enrollment) {
+      throw new BadRequestException(ErrorCode.ENROLLMENT_NOT_FOUND);
+    }
+    if (enrollment.status === CourseEnrollmentStatus.APPROVED) {
+      return toMyEnrollment(enrollment);
+    }
+    if (enrollment.status !== CourseEnrollmentStatus.PENDING) {
+      throw new BadRequestException(ErrorCode.ENROLLMENT_INVALID_STATUS);
     }
 
-    if (existing) {
-      const updated = await this.enrollmentsRepository.update(existing.id, {
-        status: CourseEnrollmentStatus.APPROVED,
-        paidAt: now,
-        approvedAt: now,
-        approvedBy: { disconnect: true },
-      });
-      return toMyEnrollment(updated);
-    }
-
-    const enrollment = await this.enrollmentsRepository.create({
-      courseId,
-      userId: user.id,
-      status: CourseEnrollmentStatus.APPROVED,
-      paidAt: now,
-      approvedAt: now,
+    const updated = await this.enrollmentsRepository.update(enrollment.id, {
+      status: CourseEnrollmentStatus.PAID,
+      paidAt: new Date(),
     });
-    return toMyEnrollment(enrollment);
+    this.notifyEnrollment(
+      user.email,
+      course.title,
+      updated.paidAt ?? new Date(),
+      'purchase',
+    );
+    return toMyEnrollment(updated);
   }
 
   async listForCourse(
@@ -239,5 +233,19 @@ export class EnrollmentsService {
     if (user.role !== Role.SUBSCRIBER) {
       throw new ForbiddenException(ErrorCode.FORBIDDEN_ROLE);
     }
+  }
+
+  private notifyEnrollment(
+    email: string,
+    courseTitle: string,
+    submittedAt: Date,
+    event: 'request' | 'resubmit' | 'purchase',
+  ): void {
+    void this.telegramService
+      .notifyEnrollment({ email, courseTitle, submittedAt, event })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`Telegram notification error: ${message}`);
+      });
   }
 }

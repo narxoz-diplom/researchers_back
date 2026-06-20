@@ -16,8 +16,6 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
 import { SubscriptionGuard } from '../../common/guards/subscription.guard';
 import { AttachMaterialDto } from './dto/attach-material.dto';
@@ -45,11 +43,8 @@ export class LessonsController {
   })
   @ApiResponse({ status: 200, type: LessonDetailResponseDto })
   @ApiResponse({ status: 403, description: 'SUBSCRIPTION_REQUIRED' })
-  getById(
-    @Param('id') id: string,
-    @CurrentUser() user: JwtPayloadUser,
-  ): Promise<LessonDetailResponseDto> {
-    return this.lessonsService.getById(id, user);
+  getById(@Param('id') id: string): Promise<LessonDetailResponseDto> {
+    return this.lessonsService.getById(id);
   }
 
   @UseGuards(LessonOwnerGuard)

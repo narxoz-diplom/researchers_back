@@ -1,6 +1,8 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CourseStatus, Role } from '@prisma/client';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
+import { isCourseSectionCategory } from '../../common/constants/course-categories';
+import { ErrorCode } from '../../common/errors/error-codes';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { MediaService } from '../media/media.service';
 import { COURSES_REPOSITORY } from './courses.constants';
@@ -9,7 +11,6 @@ import {
   toCourseDetail,
   toCourseListItem,
   toCourseListItemFromAuthorCourse,
-  toCoursePreview,
 } from './courses.mapper';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { ListCoursesQueryDto } from './dto/list-courses-query.dto';
@@ -18,9 +19,7 @@ import {
   CourseListItemDto,
   PagedCoursesDto,
 } from './dto/course-response.dto';
-import { CoursePreviewDto } from './dto/course-preview.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-import { CoursePricingService } from './course-pricing.service';
 
 @Injectable()
 export class CoursesService {
@@ -29,7 +28,6 @@ export class CoursesService {
     private readonly coursesRepository: ICoursesRepository,
     private readonly enrollmentsService: EnrollmentsService,
     private readonly mediaService: MediaService,
-    private readonly coursePricingService: CoursePricingService,
   ) {}
 
   async listCatalog(query: ListCoursesQueryDto): Promise<PagedCoursesDto> {
@@ -38,7 +36,7 @@ export class CoursesService {
 
     const { data, total } = await this.coursesRepository.findPublished({
       search: query.search,
-      categoryId: query.categoryId,
+      category: query.category,
       page,
       pageSize,
     });
@@ -54,15 +52,10 @@ export class CoursesService {
     return courses.map(toCourseListItem);
   }
 
-  async getPreview(id: string): Promise<CoursePreviewDto> {
-    const course = await this.coursesRepository.findById(id);
-    if (!course || course.status !== CourseStatus.PUBLISHED) {
-      throw new NotFoundException('Course not found');
-    }
-    return toCoursePreview(course);
-  }
-
-  async getById(id: string, user: JwtPayloadUser): Promise<CourseDetailDto> {
+  async getById(
+    id: string,
+    user: JwtPayloadUser | null,
+  ): Promise<CourseDetailDto> {
     const course = await this.coursesRepository.findById(id);
     if (!course) {
       throw new NotFoundException('Course not found');
@@ -70,15 +63,12 @@ export class CoursesService {
 
     this.assertCanViewCourse(course.status, course.authorId, user);
 
-    const hasAccess = await this.resolveHasAccess(
-      course.id,
-      course.authorId,
-      user,
-    );
-    const myEnrollment = await this.enrollmentsService.getMyEnrollmentForCourse(
-      course.id,
-      user,
-    );
+    const hasAccess = user
+      ? await this.resolveHasAccess(course.id, course.authorId, user)
+      : false;
+    const myEnrollment = user
+      ? await this.enrollmentsService.getMyEnrollmentForCourse(course.id, user)
+      : null;
     return toCourseDetail(course, hasAccess, myEnrollment);
   }
 
@@ -92,7 +82,7 @@ export class CoursesService {
       description: dto.description,
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
-      categoryId: dto.categoryId,
+      category: dto.category,
       ratingAvg: dto.ratingAvg,
       ratingCount: dto.ratingCount,
     });
@@ -110,12 +100,10 @@ export class CoursesService {
       description: dto.description,
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
-      categoryId: dto.categoryId,
+      category: dto.category,
       ratingAvg: dto.ratingAvg,
       ratingCount: dto.ratingCount,
     });
-
-    await this.coursePricingService.syncLessonPrices(id);
 
     return toCourseListItemFromAuthorCourse(course, existing.lessons.length);
   }
@@ -153,6 +141,10 @@ export class CoursesService {
       throw new NotFoundException('Course not found');
     }
 
+    if (status === CourseStatus.PUBLISHED && !isCourseSectionCategory(existing.category)) {
+      throw new BadRequestException(ErrorCode.COURSE_CATEGORY_REQUIRED);
+    }
+
     const course = await this.coursesRepository.updateStatus(id, status);
     return toCourseListItemFromAuthorCourse(course, existing.lessons.length);
   }
@@ -160,9 +152,9 @@ export class CoursesService {
   private assertCanViewCourse(
     status: CourseStatus,
     authorId: string,
-    user: JwtPayloadUser,
+    user: JwtPayloadUser | null,
   ): void {
-    if (user.role === Role.ADMIN || authorId === user.id) {
+    if (user && (user.role === Role.ADMIN || authorId === user.id)) {
       return;
     }
 

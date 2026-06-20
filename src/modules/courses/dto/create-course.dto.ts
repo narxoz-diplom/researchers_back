@@ -10,7 +10,12 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  IsIn,
 } from 'class-validator';
+import {
+  COURSE_SECTION_CATEGORIES,
+  type CourseSectionCategory,
+} from '../../../common/constants/course-categories';
 
 export class CreateCourseDto {
   @ApiProperty({ maxLength: 200 })
@@ -47,10 +52,14 @@ export class CreateCourseDto {
   @Min(0)
   priceCents?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    enum: COURSE_SECTION_CATEGORIES,
+    default: 'publication',
+    description: 'Landing section: publication | methods | tools | wellness',
+  })
   @IsOptional()
-  @IsString()
-  categoryId?: string | null;
+  @IsIn(COURSE_SECTION_CATEGORIES)
+  category?: CourseSectionCategory;
 
   @ApiPropertyOptional({ minimum: 0, maximum: 5 })
   @IsOptional()

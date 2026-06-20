@@ -2,7 +2,7 @@ import { CourseStatus, Prisma } from '@prisma/client';
 
 export interface SearchPublishedParams {
   search?: string;
-  categoryId?: string;
+  category?: string;
   page: number;
   pageSize: number;
 }
@@ -13,7 +13,7 @@ export interface CreateCoursePayload {
   description: string;
   coverUrl?: string | null;
   priceCents?: number;
-  categoryId?: string | null;
+  category?: string;
   ratingAvg?: number;
   ratingCount?: number;
 }
@@ -23,22 +23,18 @@ export interface UpdateCoursePayload {
   description?: string;
   coverUrl?: string | null;
   priceCents?: number;
-  categoryId?: string | null;
+  category?: string;
   ratingAvg?: number;
   ratingCount?: number;
 }
 
 export type CourseWithAuthor = Prisma.CourseGetPayload<{
-  include: {
-    author: { select: { id: true; fullName: true } };
-    category: { select: { id: true; name: true; slug: true } };
-  };
+  include: { author: { select: { id: true; fullName: true } } };
 }>;
 
 export type CourseWithAuthorAndLessons = Prisma.CourseGetPayload<{
   include: {
     author: { select: { id: true; fullName: true } };
-    category: { select: { id: true; name: true; slug: true } };
     lessons: {
       orderBy: { orderNumber: 'asc' };
       include: { videos: true; materials: true };
@@ -49,7 +45,6 @@ export type CourseWithAuthorAndLessons = Prisma.CourseGetPayload<{
 export type CourseListRow = Prisma.CourseGetPayload<{
   include: {
     author: { select: { id: true; fullName: true } };
-    category: { select: { id: true; name: true; slug: true } };
     _count: { select: { lessons: true } };
   };
 }>;

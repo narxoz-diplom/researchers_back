@@ -52,11 +52,6 @@ export class LessonSummaryDto {
   orderNumber: number;
 
   @ApiPropertyOptional({
-    description: 'True when the lesson requires enrollment',
-  })
-  locked?: boolean;
-
-  @ApiPropertyOptional({
     description: 'Omitted when the user has no content access',
   })
   content?: string;
@@ -95,11 +90,8 @@ export class CourseListItemDto {
   })
   priceCents: number;
 
-  @ApiPropertyOptional()
-  category?: string;
-
-  @ApiPropertyOptional()
-  categoryId?: string;
+  @ApiProperty()
+  category: string;
 
   @ApiProperty()
   ratingAvg: number;

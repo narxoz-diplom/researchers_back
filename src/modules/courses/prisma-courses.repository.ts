@@ -20,7 +20,6 @@ export class PrismaCoursesRepository implements ICoursesRepository {
       where: { id },
       include: {
         author: { select: { id: true, fullName: true } },
-        category: { select: { id: true, name: true, slug: true } },
         lessons: {
           orderBy: { orderNumber: 'asc' },
           include: { videos: true, materials: true },
@@ -34,7 +33,7 @@ export class PrismaCoursesRepository implements ICoursesRepository {
   ): Promise<{ data: CourseListRow[]; total: number }> {
     const where: Prisma.CourseWhereInput = {
       status: CourseStatus.PUBLISHED,
-      ...(params.categoryId ? { categoryId: params.categoryId } : {}),
+      ...(params.category ? { category: params.category } : {}),
       ...(params.search?.trim()
         ? {
             OR: [
@@ -60,7 +59,6 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         where,
         include: {
           author: { select: { id: true, fullName: true } },
-          category: { select: { id: true, name: true, slug: true } },
           _count: { select: { lessons: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -78,7 +76,6 @@ export class PrismaCoursesRepository implements ICoursesRepository {
       where: { authorId },
       include: {
         author: { select: { id: true, fullName: true } },
-        category: { select: { id: true, name: true, slug: true } },
         _count: { select: { lessons: true } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -95,9 +92,7 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         ...(input.priceCents !== undefined
           ? { priceCents: input.priceCents }
           : {}),
-        ...(input.categoryId !== undefined
-          ? { categoryId: input.categoryId }
-          : {}),
+        ...(input.category !== undefined ? { category: input.category } : {}),
         ...(input.ratingAvg !== undefined
           ? { ratingAvg: input.ratingAvg }
           : {}),
@@ -108,7 +103,6 @@ export class PrismaCoursesRepository implements ICoursesRepository {
       },
       include: {
         author: { select: { id: true, fullName: true } },
-        category: { select: { id: true, name: true, slug: true } },
       },
     });
   }
@@ -125,9 +119,7 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         ...(input.priceCents !== undefined
           ? { priceCents: input.priceCents }
           : {}),
-        ...(input.categoryId !== undefined
-          ? { categoryId: input.categoryId }
-          : {}),
+        ...(input.category !== undefined ? { category: input.category } : {}),
         ...(input.ratingAvg !== undefined
           ? { ratingAvg: input.ratingAvg }
           : {}),
@@ -137,7 +129,6 @@ export class PrismaCoursesRepository implements ICoursesRepository {
       },
       include: {
         author: { select: { id: true, fullName: true } },
-        category: { select: { id: true, name: true, slug: true } },
       },
     });
   }
@@ -148,7 +139,6 @@ export class PrismaCoursesRepository implements ICoursesRepository {
       data: { status },
       include: {
         author: { select: { id: true, fullName: true } },
-        category: { select: { id: true, name: true, slug: true } },
       },
     });
   }

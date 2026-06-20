@@ -1,6 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  COURSE_SECTION_CATEGORIES,
+  type CourseSectionCategory,
+} from '../../../common/constants/course-categories';
 
 export class ListCoursesQueryDto {
   @ApiPropertyOptional({ description: 'Search in title and description' })
@@ -8,10 +12,13 @@ export class ListCoursesQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by category id' })
+  @ApiPropertyOptional({
+    enum: COURSE_SECTION_CATEGORIES,
+    description: 'Filter by landing section category',
+  })
   @IsOptional()
-  @IsString()
-  categoryId?: string;
+  @IsIn(COURSE_SECTION_CATEGORIES)
+  category?: CourseSectionCategory;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

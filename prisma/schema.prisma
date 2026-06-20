@@ -56,8 +56,6 @@ model User {
   emailVerificationTokens   EmailVerificationToken[]
   enrollments               CourseEnrollment[]       @relation("CourseEnrollments")
   approvedEnrollments       CourseEnrollment[]       @relation("ApprovedEnrollments")
-  lessonPurchases           LessonPurchase[]
-  videoPurchases            VideoPurchase[]
 }
 
 model RefreshToken {
@@ -97,18 +95,11 @@ model Founder {
   @@index([isPublished, orderNumber])
 }
 
-model Category {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  orderNumber Int      @default(0)
-  isPublished Boolean  @default(true)
-  createdAt   DateTime @default(now())
+model LandingSection {
+  slug        String   @id
+  description String   @db.Text
+  points      String[]
   updatedAt   DateTime @updatedAt
-
-  courses Course[]
-
-  @@index([isPublished, orderNumber])
 }
 
 model Course {
@@ -117,7 +108,7 @@ model Course {
   title       String
   description String
   coverUrl    String?
-  categoryId  String?
+  category    String       @default("publication")
   ratingAvg   Float        @default(0)
   ratingCount Int          @default(0)
   priceCents  Int          @default(499000)
@@ -126,12 +117,11 @@ model Course {
   updatedAt   DateTime     @updatedAt
 
   author      User               @relation("CourseAuthor", fields: [authorId], references: [id])
-  category    Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   lessons     Lesson[]
   enrollments CourseEnrollment[]
 
   @@index([authorId, status])
-  @@index([categoryId])
+  @@index([status, category])
 }
 
 model CourseEnrollment {
@@ -160,7 +150,6 @@ model Lesson {
   title       String
   content     String   @db.Text
   orderNumber Int
-  priceCents  Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -168,7 +157,6 @@ model Lesson {
   videos    LessonVideo[]
   materials LessonMaterial[]
   progress  Progress[]
-  purchases LessonPurchase[]
 
   @@unique([courseId, orderNumber])
 }
@@ -182,39 +170,9 @@ model LessonVideo {
   durationSeconds    Int
   sizeBytes          BigInt
   orderNumber        Int      @default(1)
-  priceCents         Int?
   createdAt          DateTime @default(now())
 
-  lesson    Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  purchases VideoPurchase[]
-}
-
-model LessonPurchase {
-  id        String   @id @default(cuid())
-  lessonId  String
-  userId    String
-  paidAt    DateTime @default(now())
-  createdAt DateTime @default(now())
-
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([lessonId, userId])
-  @@index([userId])
-}
-
-model VideoPurchase {
-  id        String   @id @default(cuid())
-  videoId   String
-  userId    String
-  paidAt    DateTime @default(now())
-  createdAt DateTime @default(now())
-
-  video LessonVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([videoId, userId])
-  @@index([userId])
 }
 
 model LessonMaterial {

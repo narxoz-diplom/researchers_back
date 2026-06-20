@@ -16,8 +16,8 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { ProgressModule } from './modules/progress/progress.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { FoundersModule } from './modules/founders/founders.module';
-import { CategoriesModule } from './modules/categories/categories.module';
-import { PurchasesModule } from './modules/purchases/purchases.module';
+import { LandingSectionsModule } from './modules/landing-sections/landing-sections.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
 
 @Module({
   imports: [
@@ -35,8 +35,8 @@ import { PurchasesModule } from './modules/purchases/purchases.module';
     ProgressModule,
     EnrollmentsModule,
     FoundersModule,
-    CategoriesModule,
-    PurchasesModule,
+    LandingSectionsModule,
+    TelegramModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
