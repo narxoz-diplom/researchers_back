@@ -84,28 +84,44 @@ export class EnrollmentsService {
     courseId: string,
     user: JwtPayloadUser,
   ): Promise<MyEnrollmentDto> {
+    return this.grantCourseAccess(courseId, user);
+  }
+
+  async grantCourseAccess(
+    courseId: string,
+    user: JwtPayloadUser,
+  ): Promise<MyEnrollmentDto> {
     this.assertSubscriber(user);
     await this.getPublishedCourse(courseId);
 
-    const enrollment = await this.enrollmentsRepository.findByCourseAndUser(
+    const existing = await this.enrollmentsRepository.findByCourseAndUser(
       courseId,
       user.id,
     );
-    if (!enrollment) {
-      throw new BadRequestException(ErrorCode.ENROLLMENT_NOT_FOUND);
-    }
-    if (enrollment.status === CourseEnrollmentStatus.APPROVED) {
-      return toMyEnrollment(enrollment);
-    }
-    if (enrollment.status !== CourseEnrollmentStatus.PENDING) {
-      throw new BadRequestException(ErrorCode.ENROLLMENT_INVALID_STATUS);
+    const now = new Date();
+
+    if (existing?.status === CourseEnrollmentStatus.APPROVED) {
+      return toMyEnrollment(existing);
     }
 
-    const updated = await this.enrollmentsRepository.update(enrollment.id, {
-      status: CourseEnrollmentStatus.PAID,
-      paidAt: new Date(),
+    if (existing) {
+      const updated = await this.enrollmentsRepository.update(existing.id, {
+        status: CourseEnrollmentStatus.APPROVED,
+        paidAt: now,
+        approvedAt: now,
+        approvedBy: { disconnect: true },
+      });
+      return toMyEnrollment(updated);
+    }
+
+    const enrollment = await this.enrollmentsRepository.create({
+      courseId,
+      userId: user.id,
+      status: CourseEnrollmentStatus.APPROVED,
+      paidAt: now,
+      approvedAt: now,
     });
-    return toMyEnrollment(updated);
+    return toMyEnrollment(enrollment);
   }
 
   async listForCourse(

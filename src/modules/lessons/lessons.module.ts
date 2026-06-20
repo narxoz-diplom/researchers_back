@@ -4,6 +4,7 @@ import { SubscriptionGuard } from '../../common/guards/subscription.guard';
 import { CoursesModule } from '../courses/courses.module';
 import { MediaModule } from '../media/media.module';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
+import { PurchasesModule } from '../purchases/purchases.module';
 import { CourseLessonsController } from './course-lessons.controller';
 import { LESSONS_REPOSITORY } from './lessons.constants';
 import { LessonsController } from './lessons.controller';
@@ -13,7 +14,7 @@ import { PrismaLessonsRepository } from './prisma-lessons.repository';
 import { VideosController } from './videos.controller';
 
 @Module({
-  imports: [CoursesModule, MediaModule, EnrollmentsModule],
+  imports: [CoursesModule, MediaModule, EnrollmentsModule, PurchasesModule],
   controllers: [
     CourseLessonsController,
     LessonsController,

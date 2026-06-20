@@ -17,6 +17,44 @@ export function toLessonSummary(
   };
 }
 
+export function toLessonPreviewDetail(
+  lesson: LessonWithMedia,
+): LessonDetailResponseDto {
+  const firstVideo = [...lesson.videos].sort(
+    (a, b) => a.orderNumber - b.orderNumber,
+  )[0];
+
+  return {
+    ...toLessonSummary(lesson),
+    courseId: lesson.courseId,
+    content: '',
+    videos: firstVideo ? [toLessonVideo(firstVideo)] : [],
+    materials: [],
+    createdAt: lesson.createdAt.toISOString(),
+    updatedAt: lesson.updatedAt.toISOString(),
+  };
+}
+
+export function toLessonPartialDetail(
+  lesson: LessonWithMedia,
+  ownedVideoIds: string[],
+): LessonDetailResponseDto {
+  const owned = new Set(ownedVideoIds);
+  const videos = lesson.videos
+    .filter((video) => owned.has(video.id))
+    .map(toLessonVideo);
+
+  return {
+    ...toLessonSummary(lesson),
+    courseId: lesson.courseId,
+    content: '',
+    videos,
+    materials: [],
+    createdAt: lesson.createdAt.toISOString(),
+    updatedAt: lesson.updatedAt.toISOString(),
+  };
+}
+
 export function toLessonDetail(
   lesson: LessonWithMedia,
 ): LessonDetailResponseDto {

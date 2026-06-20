@@ -31,6 +31,7 @@ import {
   CourseListItemDto,
   PagedCoursesDto,
 } from './dto/course-response.dto';
+import { CoursePreviewDto } from './dto/course-preview.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 
 @ApiTags('courses')
@@ -53,6 +54,15 @@ export class CoursesController {
   @ApiResponse({ status: 200, type: [CourseListItemDto] })
   listMine(@CurrentUser() user: JwtPayloadUser): Promise<CourseListItemDto[]> {
     return this.coursesService.listMine(user);
+  }
+
+  @Public()
+  @Get(':id/preview')
+  @ApiOperation({ summary: 'Public course preview (first video + lesson list)' })
+  @ApiResponse({ status: 200, type: CoursePreviewDto })
+  @ApiResponse({ status: 404, description: 'Course not found' })
+  getPreview(@Param('id') id: string): Promise<CoursePreviewDto> {
+    return this.coursesService.getPreview(id);
   }
 
   @Get(':id')

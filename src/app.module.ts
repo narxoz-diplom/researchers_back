@@ -16,6 +16,8 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { ProgressModule } from './modules/progress/progress.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { FoundersModule } from './modules/founders/founders.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { PurchasesModule } from './modules/purchases/purchases.module';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { FoundersModule } from './modules/founders/founders.module';
     ProgressModule,
     EnrollmentsModule,
     FoundersModule,
+    CategoriesModule,
+    PurchasesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

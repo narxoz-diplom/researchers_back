@@ -47,11 +47,10 @@ export class CreateCourseDto {
   @Min(0)
   priceCents?: number;
 
-  @ApiPropertyOptional({ maxLength: 80 })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  @MaxLength(80)
-  category?: string;
+  categoryId?: string | null;
 
   @ApiPropertyOptional({ minimum: 0, maximum: 5 })
   @IsOptional()

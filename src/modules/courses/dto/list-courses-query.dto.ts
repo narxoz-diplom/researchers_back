@@ -8,6 +8,11 @@ export class ListCoursesQueryDto {
   @IsString()
   search?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by category id' })
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)

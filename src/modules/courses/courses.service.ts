@@ -9,6 +9,7 @@ import {
   toCourseDetail,
   toCourseListItem,
   toCourseListItemFromAuthorCourse,
+  toCoursePreview,
 } from './courses.mapper';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { ListCoursesQueryDto } from './dto/list-courses-query.dto';
@@ -17,7 +18,9 @@ import {
   CourseListItemDto,
   PagedCoursesDto,
 } from './dto/course-response.dto';
+import { CoursePreviewDto } from './dto/course-preview.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
+import { CoursePricingService } from './course-pricing.service';
 
 @Injectable()
 export class CoursesService {
@@ -26,6 +29,7 @@ export class CoursesService {
     private readonly coursesRepository: ICoursesRepository,
     private readonly enrollmentsService: EnrollmentsService,
     private readonly mediaService: MediaService,
+    private readonly coursePricingService: CoursePricingService,
   ) {}
 
   async listCatalog(query: ListCoursesQueryDto): Promise<PagedCoursesDto> {
@@ -34,6 +38,7 @@ export class CoursesService {
 
     const { data, total } = await this.coursesRepository.findPublished({
       search: query.search,
+      categoryId: query.categoryId,
       page,
       pageSize,
     });
@@ -47,6 +52,14 @@ export class CoursesService {
   async listMine(user: JwtPayloadUser): Promise<CourseListItemDto[]> {
     const courses = await this.coursesRepository.findMine(user.id);
     return courses.map(toCourseListItem);
+  }
+
+  async getPreview(id: string): Promise<CoursePreviewDto> {
+    const course = await this.coursesRepository.findById(id);
+    if (!course || course.status !== CourseStatus.PUBLISHED) {
+      throw new NotFoundException('Course not found');
+    }
+    return toCoursePreview(course);
   }
 
   async getById(id: string, user: JwtPayloadUser): Promise<CourseDetailDto> {
@@ -79,7 +92,7 @@ export class CoursesService {
       description: dto.description,
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
-      category: dto.category,
+      categoryId: dto.categoryId,
       ratingAvg: dto.ratingAvg,
       ratingCount: dto.ratingCount,
     });
@@ -97,10 +110,12 @@ export class CoursesService {
       description: dto.description,
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
-      category: dto.category,
+      categoryId: dto.categoryId,
       ratingAvg: dto.ratingAvg,
       ratingCount: dto.ratingCount,
     });
+
+    await this.coursePricingService.syncLessonPrices(id);
 
     return toCourseListItemFromAuthorCourse(course, existing.lessons.length);
   }

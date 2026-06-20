@@ -1,10 +1,4 @@
-import {
-  CourseEnrollmentStatus,
-  CourseStatus,
-  PrismaClient,
-  Role,
-  SubscriptionStatus,
-} from '@prisma/client';
+import { PrismaClient, Role, SubscriptionStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -53,92 +47,58 @@ async function upsertUser(data: SeedUser): Promise<string> {
   return user.id;
 }
 
-async function seedDemoCourses(authorId: string): Promise<void> {
-  const existing = await prisma.course.count({ where: { authorId } });
-  if (existing > 0) return;
+async function seedCategories(): Promise<Record<string, string>> {
+  const items = [
+    { name: 'Общее', slug: 'general', orderNumber: 0 },
+    { name: 'Академическое письмо', slug: 'academic-writing', orderNumber: 1 },
+    { name: 'Методология', slug: 'methodology', orderNumber: 2 },
+  ];
 
-  await prisma.course.create({
-    data: {
-      authorId,
-      title: 'Введение в академическое письмо',
-      description:
-        'Базовый курс о структуре научной статьи, работе с источниками и стиле изложения.',
-      category: 'Академическое письмо',
-      ratingAvg: 4.8,
-      ratingCount: 124,
-      priceCents: 499000,
-      status: CourseStatus.PUBLISHED,
-      lessons: {
-        create: [
-          {
-            title: 'Зачем нужна структура',
-            content:
-              'В этом уроке разберём, почему чёткая структура статьи помогает читателю и автору.',
-            orderNumber: 1,
-          },
-          {
-            title: 'Работа с источниками',
-            content: 'Как искать, оценивать и цитировать научные источники.',
-            orderNumber: 2,
-          },
-          {
-            title: 'Стиль и тон',
-            content: 'Принципы научного стиля: точность, нейтральность, краткость.',
-            orderNumber: 3,
-          },
-        ],
-      },
-    },
-  });
-
-  await prisma.course.create({
-    data: {
-      authorId,
-      title: 'Методология исследований (черновик)',
-      description: 'Курс о выборе методов исследования. Пока в работе.',
-      status: CourseStatus.DRAFT,
-      lessons: {
-        create: [
-          {
-            title: 'Качественные vs количественные методы',
-            content: 'Сравнение подходов и сферы применения.',
-            orderNumber: 1,
-          },
-        ],
-      },
-    },
-  });
+  const ids: Record<string, string> = {};
+  for (const item of items) {
+    const category = await prisma.category.upsert({
+      where: { slug: item.slug },
+      update: { name: item.name, orderNumber: item.orderNumber, isPublished: true },
+      create: { ...item, isPublished: true },
+    });
+    ids[item.slug] = category.id;
+  }
+  return ids;
 }
 
-async function seedApprovedEnrollment(
-  subscriberId: string,
-  authorId: string,
-): Promise<void> {
-  const course = await prisma.course.findFirst({
-    where: { authorId, status: CourseStatus.PUBLISHED },
+async function consolidateCategories(): Promise<void> {
+  const canonical = await prisma.category.findMany({
+    where: { slug: { in: ['general', 'academic-writing', 'methodology'] } },
   });
-  if (!course) return;
 
-  const now = new Date();
-  await prisma.courseEnrollment.upsert({
-    where: {
-      courseId_userId: { courseId: course.id, userId: subscriberId },
-    },
-    update: {
-      status: CourseEnrollmentStatus.APPROVED,
-      paidAt: now,
-      approvedAt: now,
-      approvedById: authorId,
-    },
-    create: {
-      courseId: course.id,
-      userId: subscriberId,
-      status: CourseEnrollmentStatus.APPROVED,
-      paidAt: now,
-      approvedAt: now,
-      approvedById: authorId,
-    },
+  for (const target of canonical) {
+    const duplicates = await prisma.category.findMany({
+      where: { name: target.name, id: { not: target.id } },
+    });
+
+    for (const duplicate of duplicates) {
+      await prisma.course.updateMany({
+        where: { categoryId: duplicate.id },
+        data: { categoryId: target.id },
+      });
+      await prisma.category.delete({ where: { id: duplicate.id } });
+    }
+  }
+
+  const legacy = await prisma.category.findMany({
+    where: { slug: { startsWith: 'cat-' } },
   });
+
+  for (const duplicate of legacy) {
+    const target = canonical.find((item) => item.name === duplicate.name);
+    if (!target) continue;
+
+    await prisma.course.updateMany({
+      where: { categoryId: duplicate.id },
+      data: { categoryId: target.id },
+    });
+    await prisma.category.delete({ where: { id: duplicate.id } });
+  }
 }
 
 async function seedFounders(): Promise<void> {
@@ -207,9 +167,9 @@ async function main(): Promise<void> {
     ids[user.role] = await upsertUser(user);
   }
 
-  await seedDemoCourses(ids.AUTHOR);
+  await seedCategories();
+  await consolidateCategories();
   await seedFounders();
-  await seedApprovedEnrollment(ids.SUBSCRIBER, ids.AUTHOR);
   await grantActiveSubscription(ids.SUBSCRIBER, ids.ADMIN);
 
   console.log('\nSeed completed. Demo accounts:');

@@ -10,14 +10,14 @@ import { Role } from '@prisma/client';
 import { Request } from 'express';
 import { LESSONS_REPOSITORY } from '../../modules/lessons/lessons.constants';
 import type { ILessonsRepository } from '../../modules/lessons/lessons.repository.interface';
-import { EnrollmentsService } from '../../modules/enrollments/enrollments.service';
+import { PurchasesService } from '../../modules/purchases/purchases.service';
 import { JwtPayloadUser } from '../decorators/current-user.decorator';
 import { ErrorCode } from '../errors/error-codes';
 
 @Injectable()
 export class SubscriptionGuard implements CanActivate {
   constructor(
-    private readonly enrollmentsService: EnrollmentsService,
+    private readonly purchasesService: PurchasesService,
     @Inject(LESSONS_REPOSITORY)
     private readonly lessonsRepository: ILessonsRepository,
   ) {}
@@ -51,14 +51,25 @@ export class SubscriptionGuard implements CanActivate {
       return true;
     }
 
-    const hasAccess = await this.enrollmentsService.hasApprovedAccess(
-      user.id,
+    const courseLessons = await this.lessonsRepository.findByCourseId(
       lesson.course.id,
     );
-    if (!hasAccess) {
-      throw new ForbiddenException(ErrorCode.SUBSCRIPTION_REQUIRED);
+    const firstLessonId = [...courseLessons].sort(
+      (a, b) => a.orderNumber - b.orderNumber,
+    )[0]?.id;
+
+    const hasAccess = await this.purchasesService.hasLessonAccess(
+      user.id,
+      lessonId,
+      lesson.course.id,
+      lesson.course.authorId,
+      lesson.course.status,
+      firstLessonId,
+    );
+    if (hasAccess) {
+      return true;
     }
 
-    return true;
+    throw new ForbiddenException(ErrorCode.SUBSCRIPTION_REQUIRED);
   }
 }
