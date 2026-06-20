@@ -91,6 +91,11 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         ...(input.priceCents !== undefined
           ? { priceCents: input.priceCents }
           : {}),
+        ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.ratingAvg !== undefined ? { ratingAvg: input.ratingAvg } : {}),
+        ...(input.ratingCount !== undefined
+          ? { ratingCount: input.ratingCount }
+          : {}),
         status: CourseStatus.DRAFT,
       },
       include: {
@@ -110,6 +115,11 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         ...(input.coverUrl !== undefined ? { coverUrl: input.coverUrl } : {}),
         ...(input.priceCents !== undefined
           ? { priceCents: input.priceCents }
+          : {}),
+        ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.ratingAvg !== undefined ? { ratingAvg: input.ratingAvg } : {}),
+        ...(input.ratingCount !== undefined
+          ? { ratingCount: input.ratingCount }
           : {}),
       },
       include: {

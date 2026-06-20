@@ -2,9 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
   Min,
   ValidateIf,
@@ -44,4 +46,23 @@ export class CreateCourseDto {
   @IsInt()
   @Min(0)
   priceCents?: number;
+
+  @ApiPropertyOptional({ maxLength: 80 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  category?: string;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 5 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(5)
+  ratingAvg?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  ratingCount?: number;
 }

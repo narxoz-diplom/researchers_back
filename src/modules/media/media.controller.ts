@@ -80,7 +80,7 @@ export class MediaController {
           const folder = String(
             (req.body as { folder?: string })?.folder ?? '',
           );
-          if (!/^(courses|avatars)\/[a-zA-Z0-9/_-]+$/.test(folder)) {
+          if (!/^(courses|avatars|founders)\/[a-zA-Z0-9/_-]+$/.test(folder)) {
             cb(new Error('Invalid upload folder'), '');
             return;
           }

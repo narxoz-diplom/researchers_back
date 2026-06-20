@@ -79,6 +79,9 @@ export class CoursesService {
       description: dto.description,
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
+      category: dto.category,
+      ratingAvg: dto.ratingAvg,
+      ratingCount: dto.ratingCount,
     });
     return toCourseListItemFromAuthorCourse(course);
   }
@@ -94,6 +97,9 @@ export class CoursesService {
       description: dto.description,
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
+      category: dto.category,
+      ratingAvg: dto.ratingAvg,
+      ratingCount: dto.ratingCount,
     });
 
     return toCourseListItemFromAuthorCourse(course, existing.lessons.length);

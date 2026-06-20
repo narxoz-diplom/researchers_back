@@ -91,6 +91,15 @@ export class CourseListItemDto {
   priceCents: number;
 
   @ApiProperty()
+  category: string;
+
+  @ApiProperty()
+  ratingAvg: number;
+
+  @ApiProperty()
+  ratingCount: number;
+
+  @ApiProperty()
   createdAt: string;
 }
 

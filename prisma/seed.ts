@@ -63,6 +63,9 @@ async function seedDemoCourses(authorId: string): Promise<void> {
       title: 'Введение в академическое письмо',
       description:
         'Базовый курс о структуре научной статьи, работе с источниками и стиле изложения.',
+      category: 'Академическое письмо',
+      ratingAvg: 4.8,
+      ratingCount: 124,
       priceCents: 499000,
       status: CourseStatus.PUBLISHED,
       lessons: {
@@ -138,6 +141,39 @@ async function seedApprovedEnrollment(
   });
 }
 
+async function seedFounders(): Promise<void> {
+  const existing = await prisma.founder.count();
+  if (existing > 0) return;
+
+  const sampleVideo =
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+
+  await prisma.founder.createMany({
+    data: [
+      {
+        fullName: 'Айгуль Нурланова',
+        position: 'Сооснователь, CEO',
+        description:
+          'Более 10 лет в EdTech. Создала ACADEMIS, чтобы сделать академические навыки доступными каждому исследователю.',
+        videoUrl: sampleVideo,
+        previewUrl:
+          'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop',
+        orderNumber: 1,
+      },
+      {
+        fullName: 'Дмитрий Касымов',
+        position: 'Сооснователь, Head of Science',
+        description:
+          'Кандидат наук, методолог. Отвечает за качество программ и работу с авторами курсов.',
+        videoUrl: sampleVideo,
+        previewUrl:
+          'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop',
+        orderNumber: 2,
+      },
+    ],
+  });
+}
+
 async function grantActiveSubscription(
   subscriberId: string,
   adminId: string,
@@ -172,6 +208,7 @@ async function main(): Promise<void> {
   }
 
   await seedDemoCourses(ids.AUTHOR);
+  await seedFounders();
   await seedApprovedEnrollment(ids.SUBSCRIBER, ids.AUTHOR);
   await grantActiveSubscription(ids.SUBSCRIBER, ids.ADMIN);
 

@@ -19,6 +19,9 @@ export function toCourseListItem(course: CourseListRow): CourseListItemDto {
     author: course.author,
     lessonsCount: course._count.lessons,
     priceCents: course.priceCents,
+    category: course.category,
+    ratingAvg: course.ratingAvg,
+    ratingCount: course.ratingCount,
     createdAt: course.createdAt.toISOString(),
     ...(course.coverUrl ? { coverUrl: course.coverUrl } : {}),
   };
@@ -85,6 +88,9 @@ export function toCourseListItemFromAuthorCourse(
     author: course.author,
     lessonsCount,
     priceCents: course.priceCents,
+    category: course.category,
+    ratingAvg: course.ratingAvg,
+    ratingCount: course.ratingCount,
     createdAt: course.createdAt.toISOString(),
     ...(course.coverUrl ? { coverUrl: course.coverUrl } : {}),
   };

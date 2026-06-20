@@ -12,6 +12,9 @@ export interface CreateCoursePayload {
   description: string;
   coverUrl?: string | null;
   priceCents?: number;
+  category?: string;
+  ratingAvg?: number;
+  ratingCount?: number;
 }
 
 export interface UpdateCoursePayload {
@@ -19,6 +22,9 @@ export interface UpdateCoursePayload {
   description?: string;
   coverUrl?: string | null;
   priceCents?: number;
+  category?: string;
+  ratingAvg?: number;
+  ratingCount?: number;
 }
 
 export type CourseWithAuthor = Prisma.CourseGetPayload<{

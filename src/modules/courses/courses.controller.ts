@@ -20,6 +20,7 @@ import {
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CourseOwnerGuard } from '../../common/guards/course-owner.guard';
 import { CoursesService } from './courses.service';
@@ -38,6 +39,7 @@ import { UpdateCourseDto } from './dto/update-course.dto';
 export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
+  @Public()
   @Get()
   @ApiOperation({ summary: 'Catalog of published courses' })
   @ApiResponse({ status: 200, type: PagedCoursesDto })

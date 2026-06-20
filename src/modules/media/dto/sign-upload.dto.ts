@@ -20,9 +20,9 @@ export class SignUploadDto {
   })
   @IsString()
   @MaxLength(500)
-  @Matches(/^(courses|avatars)\/[a-zA-Z0-9/_-]+$/, {
+  @Matches(/^(courses|avatars|founders)\/[a-zA-Z0-9/_-]+$/, {
     message:
-      'folder must start with courses/ or avatars/ and use safe characters',
+      'folder must start with courses/, avatars/, or founders/ and use safe characters',
   })
   folder: string;
 
