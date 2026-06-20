@@ -20,6 +20,11 @@ import { PrismaCoursesRepository } from './prisma-courses.repository';
       useClass: PrismaCoursesRepository,
     },
   ],
-  exports: [CoursesService, CoursePricingService, COURSES_REPOSITORY, CourseOwnerGuard],
+  exports: [
+    CoursesService,
+    CoursePricingService,
+    COURSES_REPOSITORY,
+    CourseOwnerGuard,
+  ],
 })
 export class CoursesModule {}

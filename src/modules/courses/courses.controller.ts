@@ -58,7 +58,9 @@ export class CoursesController {
 
   @Public()
   @Get(':id/preview')
-  @ApiOperation({ summary: 'Public course preview (first video + lesson list)' })
+  @ApiOperation({
+    summary: 'Public course preview (first video + lesson list)',
+  })
   @ApiResponse({ status: 200, type: CoursePreviewDto })
   @ApiResponse({ status: 404, description: 'Course not found' })
   getPreview(@Param('id') id: string): Promise<CoursePreviewDto> {

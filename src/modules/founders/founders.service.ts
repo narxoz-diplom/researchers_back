@@ -46,11 +46,17 @@ export class FoundersService {
     const data: Prisma.FounderUpdateInput = {
       ...(dto.fullName !== undefined ? { fullName: dto.fullName } : {}),
       ...(dto.position !== undefined ? { position: dto.position } : {}),
-      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.description !== undefined
+        ? { description: dto.description }
+        : {}),
       ...(dto.videoUrl !== undefined ? { videoUrl: dto.videoUrl } : {}),
       ...(dto.previewUrl !== undefined ? { previewUrl: dto.previewUrl } : {}),
-      ...(dto.orderNumber !== undefined ? { orderNumber: dto.orderNumber } : {}),
-      ...(dto.isPublished !== undefined ? { isPublished: dto.isPublished } : {}),
+      ...(dto.orderNumber !== undefined
+        ? { orderNumber: dto.orderNumber }
+        : {}),
+      ...(dto.isPublished !== undefined
+        ? { isPublished: dto.isPublished }
+        : {}),
     };
     const founder = await this.prisma.founder.update({ where: { id }, data });
     return toFounderDto(founder);

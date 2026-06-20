@@ -98,7 +98,9 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         ...(input.categoryId !== undefined
           ? { categoryId: input.categoryId }
           : {}),
-        ...(input.ratingAvg !== undefined ? { ratingAvg: input.ratingAvg } : {}),
+        ...(input.ratingAvg !== undefined
+          ? { ratingAvg: input.ratingAvg }
+          : {}),
         ...(input.ratingCount !== undefined
           ? { ratingCount: input.ratingCount }
           : {}),
@@ -126,7 +128,9 @@ export class PrismaCoursesRepository implements ICoursesRepository {
         ...(input.categoryId !== undefined
           ? { categoryId: input.categoryId }
           : {}),
-        ...(input.ratingAvg !== undefined ? { ratingAvg: input.ratingAvg } : {}),
+        ...(input.ratingAvg !== undefined
+          ? { ratingAvg: input.ratingAvg }
+          : {}),
         ...(input.ratingCount !== undefined
           ? { ratingCount: input.ratingCount }
           : {}),
