@@ -18,6 +18,10 @@ const lessonInclude = {
   course: { select: { id: true, authorId: true, status: true } },
   videos: { orderBy: { orderNumber: 'asc' as const } },
   materials: true,
+  vectorIndexErrors: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+  },
 } satisfies Prisma.LessonInclude;
 
 @Injectable()

@@ -37,6 +37,25 @@ enum CourseEnrollmentStatus {
   REJECTED
 }
 
+enum LessonVectorIndexStatus {
+  PENDING
+  INDEXING
+  READY
+  FAILED
+}
+
+enum LessonIndexTaskStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum LessonGenerationJobStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
@@ -56,6 +75,31 @@ model User {
   emailVerificationTokens   EmailVerificationToken[]
   enrollments               CourseEnrollment[]       @relation("CourseEnrollments")
   approvedEnrollments       CourseEnrollment[]       @relation("ApprovedEnrollments")
+  authorAiSettings          AuthorAiSettings?
+  lessonChatUsage           LessonChatUsage[]
+}
+
+model AuthorAiSettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  encryptedApiKey String
+  keyHint         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LessonChatUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  periodStart  DateTime
+  messageCount Int      @default(0)
+  tokenCount   Int      @default(0)
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodStart])
+  @@index([userId])
 }
 
 model RefreshToken {
@@ -145,20 +189,91 @@ model CourseEnrollment {
 }
 
 model Lesson {
-  id          String   @id @default(cuid())
-  courseId    String
-  title       String
-  content     String   @db.Text
-  orderNumber Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String                  @id @default(cuid())
+  courseId          String
+  title             String
+  content           String                  @db.Text
+  orderNumber       Int
+  vectorIndexStatus LessonVectorIndexStatus @default(PENDING)
+  vectorIndexJobId  String?
+  vectorIndexedAt   DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
-  course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  videos    LessonVideo[]
-  materials LessonMaterial[]
-  progress  Progress[]
+  course            Course                   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  videos            LessonVideo[]
+  materials         LessonMaterial[]
+  progress          Progress[]
+  vectorIndexErrors LessonVectorIndexError[]
+  indexJobs         LessonIndexJob[]
+  generationJobs    LessonGenerationJob[]
 
   @@unique([courseId, orderNumber])
+}
+
+model LessonGenerationJob {
+  id               String                    @id @default(cuid())
+  lessonId         String
+  authorId         String
+  status           LessonGenerationJobStatus @default(PROCESSING)
+  generationPhase  String?
+  outputFormat     String?
+  content          String?                   @db.Text
+  title            String?
+  usageJson        Json?
+  errorCode        String?
+  errorMessage     String?                   @db.Text
+  ragRequestId     String?
+  ragTaskId        String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  completedAt      DateTime?
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, createdAt])
+}
+
+model LessonIndexJob {
+  id        String   @id @default(cuid())
+  lessonId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lesson Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  tasks  LessonIndexTask[]
+
+  @@index([lessonId])
+}
+
+model LessonIndexTask {
+  id        String                @id @default(cuid())
+  jobId     String
+  taskKey   String
+  status    LessonIndexTaskStatus @default(PENDING)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  job LessonIndexJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, taskKey])
+  @@index([jobId])
+}
+
+model LessonVectorIndexError {
+  id           String    @id @default(cuid())
+  lessonId     String
+  jobId        String
+  errorCode    String
+  message      String    @db.Text
+  source       String
+  ragRequestId String?
+  notifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, jobId])
 }
 
 model LessonVideo {

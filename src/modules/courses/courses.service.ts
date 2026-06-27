@@ -1,10 +1,16 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CourseStatus, Role } from '@prisma/client';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { isCourseSectionCategory } from '../../common/constants/course-categories';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { MediaService } from '../media/media.service';
+import { LessonIndexService } from '../vector/lesson-index.service';
 import { COURSES_REPOSITORY } from './courses.constants';
 import type { ICoursesRepository } from './courses.repository.interface';
 import {
@@ -28,6 +34,7 @@ export class CoursesService {
     private readonly coursesRepository: ICoursesRepository,
     private readonly enrollmentsService: EnrollmentsService,
     private readonly mediaService: MediaService,
+    private readonly lessonIndexService: LessonIndexService,
   ) {}
 
   async listCatalog(query: ListCoursesQueryDto): Promise<PagedCoursesDto> {
@@ -129,6 +136,7 @@ export class CoursesService {
     const publicIds =
       await this.coursesRepository.findMediaPublicIdsByCourseId(id);
     await this.mediaService.deleteCourseAssets(publicIds);
+    this.lessonIndexService.scheduleDeleteCourseVectors(id);
     await this.coursesRepository.delete(id);
   }
 
@@ -141,7 +149,10 @@ export class CoursesService {
       throw new NotFoundException('Course not found');
     }
 
-    if (status === CourseStatus.PUBLISHED && !isCourseSectionCategory(existing.category)) {
+    if (
+      status === CourseStatus.PUBLISHED &&
+      !isCourseSectionCategory(existing.category)
+    ) {
       throw new BadRequestException(ErrorCode.COURSE_CATEGORY_REQUIRED);
     }
 

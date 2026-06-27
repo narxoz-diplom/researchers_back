@@ -1,9 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsString, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateLandingSectionDto {
   @ApiProperty({
-    description: 'Section description. Use [link text](https://url) for inline links.',
+    description:
+      'Section description. Use [link text](https://url) for inline links.',
     maxLength: 5000,
   })
   @IsString()

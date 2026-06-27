@@ -20,6 +20,7 @@ export function toLessonSummary(
 export function toLessonDetail(
   lesson: LessonWithMedia,
 ): LessonDetailResponseDto {
+  const latestError = lesson.vectorIndexErrors?.[0];
   return {
     ...toLessonSummary(lesson),
     courseId: lesson.courseId,
@@ -28,6 +29,11 @@ export function toLessonDetail(
     materials: lesson.materials.map(toLessonMaterial),
     createdAt: lesson.createdAt.toISOString(),
     updatedAt: lesson.updatedAt.toISOString(),
+    vectorIndexStatus: lesson.vectorIndexStatus,
+    vectorIndexJobId: lesson.vectorIndexJobId,
+    vectorIndexedAt: lesson.vectorIndexedAt?.toISOString() ?? null,
+    vectorIndexErrorId: latestError?.id ?? null,
+    vectorIndexErrorCode: latestError?.errorCode ?? null,
   };
 }
 

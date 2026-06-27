@@ -69,7 +69,12 @@ export class EnrollmentsService {
           approvedAt: null,
           approvedBy: { disconnect: true },
         });
-        this.notifyEnrollment(user.email, course.title, updated.updatedAt, 'resubmit');
+        this.notifyEnrollment(
+          user.email,
+          course.title,
+          updated.updatedAt,
+          'resubmit',
+        );
         return toMyEnrollment(updated);
       }
       throw new ConflictException(ErrorCode.ENROLLMENT_EXISTS);
@@ -80,7 +85,12 @@ export class EnrollmentsService {
       userId: user.id,
       message: dto.message,
     });
-    this.notifyEnrollment(user.email, course.title, enrollment.createdAt, 'request');
+    this.notifyEnrollment(
+      user.email,
+      course.title,
+      enrollment.createdAt,
+      'request',
+    );
     return toMyEnrollment(enrollment);
   }
 

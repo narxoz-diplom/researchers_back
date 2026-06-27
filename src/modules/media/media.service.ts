@@ -8,7 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { randomBytes } from 'crypto';
-import { mkdir, unlink, writeFile } from 'fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
 import { extname, join, relative } from 'path';
 import type { Request } from 'express';
 import { LocalUploadDto } from './dto/local-upload.dto';
@@ -244,6 +244,313 @@ export class MediaService implements OnModuleInit {
       this.deleteByPublicIds(publicIds.rawIds, UploadResourceType.RAW),
       this.deleteByPublicIds(publicIds.imageIds, UploadResourceType.IMAGE),
     ]);
+  }
+
+  /**
+   * Download lesson media for RAG indexing. Cloudinary CDN often blocks raw/PDF
+   * delivery (401 ACL) even with signed URLs; Admin API download works reliably.
+   */
+  async downloadForIndexing(
+    publicId: string,
+    resourceType: UploadResourceType.VIDEO | UploadResourceType.RAW,
+    storedUrl: string,
+    mimeType?: string,
+  ): Promise<Buffer> {
+    const localBuffer = await this.readLocalUploadFile(storedUrl);
+    if (localBuffer) {
+      return localBuffer;
+    }
+
+    const publicIds = [publicId, this.extractPublicIdFromUrl(storedUrl)].filter(
+      (id): id is string => Boolean(id?.trim()),
+    );
+
+    if (this.configured) {
+      const fromAdmin = await this.downloadViaCloudinaryAdminApi(
+        [...new Set(publicIds)],
+        resourceType,
+        storedUrl,
+        mimeType,
+      );
+      if (fromAdmin) {
+        return fromAdmin;
+      }
+    }
+
+    const format = this.formatHintForDownload(
+      publicId,
+      resourceType,
+      storedUrl,
+      mimeType,
+    );
+    const candidates = this.indexingCdnDownloadUrls(
+      [...new Set(publicIds)],
+      resourceType,
+      storedUrl,
+      format,
+    );
+    let lastStatus = 0;
+
+    for (const url of candidates) {
+      try {
+        const response = await fetch(url, {
+          signal: AbortSignal.timeout(120_000),
+        });
+        if (response.ok) {
+          return Buffer.from(await response.arrayBuffer());
+        }
+        lastStatus = response.status;
+        this.logger.debug(
+          `Indexing CDN download HTTP ${response.status} publicId=${publicId}`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Indexing CDN download failed publicId=${publicId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    throw new Error(`Failed to download media (${lastStatus || 404})`);
+  }
+
+  private async downloadViaCloudinaryAdminApi(
+    publicIds: string[],
+    resourceType: UploadResourceType.VIDEO | UploadResourceType.RAW,
+    storedUrl: string,
+    mimeType?: string,
+  ): Promise<Buffer | null> {
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+
+    for (const publicId of publicIds) {
+      let deliveryType: 'upload' | 'private' | 'authenticated' = 'upload';
+      let resolvedPublicId = publicId;
+      let format = '';
+
+      try {
+        const resource = (await cloudinary.api.resource(publicId, {
+          resource_type: resourceType,
+        })) as {
+          public_id?: string;
+          type?: string;
+          format?: string;
+        };
+        resolvedPublicId = resource.public_id ?? publicId;
+        if (resource.type === 'private' || resource.type === 'authenticated') {
+          deliveryType = resource.type;
+        }
+        format = this.adminDownloadFormat(
+          resolvedPublicId,
+          resource.format,
+          resourceType,
+          storedUrl,
+          mimeType,
+        );
+      } catch (error) {
+        this.logger.debug(
+          `Cloudinary resource lookup failed publicId=${publicId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        format = this.adminDownloadFormat(
+          publicId,
+          undefined,
+          resourceType,
+          storedUrl,
+          mimeType,
+        );
+      }
+
+      for (const type of [
+        deliveryType,
+        'upload',
+        'authenticated',
+        'private',
+      ] as const) {
+        const buffer = await this.fetchAdminDownloadUrl(
+          resolvedPublicId,
+          format,
+          resourceType,
+          type,
+          expiresAt,
+        );
+        if (buffer) {
+          return buffer;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private async fetchAdminDownloadUrl(
+    publicId: string,
+    format: string,
+    resourceType: UploadResourceType.VIDEO | UploadResourceType.RAW,
+    deliveryType: 'upload' | 'private' | 'authenticated',
+    expiresAt: number,
+  ): Promise<Buffer | null> {
+    try {
+      const url = cloudinary.utils.private_download_url(publicId, format, {
+        resource_type: resourceType,
+        type: deliveryType,
+        expires_at: expiresAt,
+      });
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(120_000),
+      });
+      if (!response.ok) {
+        this.logger.debug(
+          `Cloudinary admin download HTTP ${response.status} publicId=${publicId} type=${deliveryType}`,
+        );
+        return null;
+      }
+      return Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      this.logger.debug(
+        `Cloudinary admin download failed publicId=${publicId} type=${deliveryType}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  private adminDownloadFormat(
+    publicId: string,
+    resourceFormat: string | undefined,
+    resourceType: UploadResourceType.VIDEO | UploadResourceType.RAW,
+    storedUrl: string,
+    mimeType?: string,
+  ): string {
+    if (extname(publicId)) {
+      return '';
+    }
+    if (resourceFormat) {
+      return resourceFormat;
+    }
+    return (
+      this.formatHintForDownload(publicId, resourceType, storedUrl, mimeType) ??
+      ''
+    );
+  }
+
+  private async readLocalUploadFile(storedUrl: string): Promise<Buffer | null> {
+    if (!storedUrl.trim()) {
+      return null;
+    }
+
+    try {
+      const pathname = new URL(storedUrl).pathname;
+      const prefix = '/api/v1/media/files/';
+      const markerIndex = pathname.indexOf(prefix);
+      if (markerIndex === -1) {
+        return null;
+      }
+
+      const relativePath = decodeURIComponent(
+        pathname.slice(markerIndex + prefix.length),
+      );
+      if (!relativePath || relativePath.includes('..')) {
+        return null;
+      }
+
+      return await readFile(join(UPLOAD_ROOT, relativePath));
+    } catch (error) {
+      this.logger.debug(
+        `Local upload read failed url=${storedUrl}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  private indexingCdnDownloadUrls(
+    publicIds: string[],
+    resourceType: UploadResourceType.VIDEO | UploadResourceType.RAW,
+    storedUrl: string,
+    format: string | null,
+  ): string[] {
+    const urls: string[] = [];
+
+    if (this.configured) {
+      for (const publicId of publicIds) {
+        const includeFormat = format && !extname(publicId);
+        const urlOptions = {
+          resource_type: resourceType,
+          type: 'upload' as const,
+          secure: true,
+          sign_url: true,
+          ...(includeFormat ? { format } : {}),
+        };
+        urls.push(cloudinary.url(publicId, urlOptions));
+
+        for (const deliveryType of ['authenticated', 'private'] as const) {
+          urls.push(
+            cloudinary.url(publicId, {
+              resource_type: resourceType,
+              type: deliveryType,
+              secure: true,
+              sign_url: true,
+              ...(includeFormat ? { format } : {}),
+            }),
+          );
+        }
+      }
+    }
+
+    if (storedUrl.trim()) {
+      urls.push(storedUrl.trim());
+    }
+
+    return [...new Set(urls)];
+  }
+
+  private formatHintForDownload(
+    publicId: string,
+    resourceType: UploadResourceType.VIDEO | UploadResourceType.RAW,
+    storedUrl: string,
+    mimeType?: string,
+  ): string | null {
+    const fromId = extname(publicId).replace(/^\./, '');
+    if (fromId) {
+      return fromId;
+    }
+
+    const fromUrl = this.formatFromUrl(storedUrl);
+    if (fromUrl) {
+      return fromUrl;
+    }
+
+    const mimeToExt: Record<string, string> = {
+      'application/pdf': 'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        'docx',
+      'video/mp4': 'mp4',
+      'video/quicktime': 'mov',
+      'video/webm': 'webm',
+    };
+    if (mimeType && mimeToExt[mimeType]) {
+      return mimeToExt[mimeType];
+    }
+
+    if (resourceType === UploadResourceType.VIDEO) {
+      return 'mp4';
+    }
+
+    return null;
+  }
+
+  private formatFromUrl(url: string): string | null {
+    try {
+      const ext = extname(new URL(url).pathname).replace(/^\./, '');
+      return ext || null;
+    } catch {
+      return null;
+    }
   }
 
   private ensureConfigured(): void {

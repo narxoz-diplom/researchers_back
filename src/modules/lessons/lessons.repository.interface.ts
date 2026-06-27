@@ -53,6 +53,7 @@ export type LessonWithMedia = Prisma.LessonGetPayload<{
     course: { select: { id: true; authorId: true; status: true } };
     videos: { orderBy: { orderNumber: 'asc' } };
     materials: true;
+    vectorIndexErrors: { orderBy: { createdAt: 'desc' }; take: 1 };
   };
 }>;
 

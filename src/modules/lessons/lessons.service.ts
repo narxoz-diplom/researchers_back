@@ -11,6 +11,7 @@ import { ErrorCode } from '../../common/errors/error-codes';
 import { COURSES_REPOSITORY } from '../courses/courses.constants';
 import type { ICoursesRepository } from '../courses/courses.repository.interface';
 import { MediaService } from '../media/media.service';
+import { LessonIndexService } from '../vector/lesson-index.service';
 import { UploadResourceType } from '../media/media.types';
 import {
   LESSONS_REPOSITORY,
@@ -45,6 +46,7 @@ export class LessonsService {
     @Inject(COURSES_REPOSITORY)
     private readonly coursesRepository: ICoursesRepository,
     private readonly mediaService: MediaService,
+    private readonly lessonIndexService: LessonIndexService,
   ) {}
 
   async listByCourse(
@@ -82,6 +84,7 @@ export class LessonsService {
         content: dto.content ?? '',
         orderNumber: dto.orderNumber,
       });
+      this.lessonIndexService.scheduleReindex(lesson.id);
       return toLessonDetail(lesson);
     } catch (error) {
       if (
@@ -106,6 +109,9 @@ export class LessonsService {
         content: dto.content,
         orderNumber: dto.orderNumber,
       });
+      if (dto.title !== undefined || dto.content !== undefined) {
+        this.lessonIndexService.scheduleReindex(id);
+      }
       return toLessonDetail(lesson);
     } catch (error) {
       if (
@@ -134,6 +140,7 @@ export class LessonsService {
       publicIds.rawIds,
       UploadResourceType.RAW,
     );
+    this.lessonIndexService.scheduleDeleteLessonVectors(lesson.courseId, id);
     await this.lessonsRepository.delete(id);
   }
 
@@ -192,6 +199,8 @@ export class LessonsService {
       orderNumber,
     });
 
+    this.lessonIndexService.scheduleReindex(lessonId);
+
     return {
       lessonId: video.lessonId,
       cloudinaryPublicId: video.cloudinaryPublicId,
@@ -230,6 +239,14 @@ export class LessonsService {
       [video.cloudinaryPublicId],
       UploadResourceType.VIDEO,
     );
+    const lesson = await this.lessonsRepository.findById(video.lessonId);
+    if (lesson) {
+      this.lessonIndexService.scheduleCleanupMedia(
+        lesson.courseId,
+        video.lessonId,
+        id,
+      );
+    }
     await this.lessonsRepository.deleteVideo(id);
   }
 
@@ -252,11 +269,37 @@ export class LessonsService {
       sizeBytes: BigInt(dto.sizeBytes),
     });
 
+    this.lessonIndexService.scheduleReindex(lessonId);
+
     return {
       lessonId: material.lessonId,
       cloudinaryPublicId: material.cloudinaryPublicId,
       createdAt: material.createdAt.toISOString(),
       ...toLessonMaterial(material),
+    };
+  }
+
+  async downloadMaterial(id: string): Promise<{
+    buffer: Buffer;
+    filename: string;
+    mimeType: string;
+  }> {
+    const material = await this.lessonsRepository.findMaterialById(id);
+    if (!material) {
+      throw new NotFoundException('Material not found');
+    }
+
+    const buffer = await this.mediaService.downloadForIndexing(
+      material.cloudinaryPublicId,
+      UploadResourceType.RAW,
+      material.url,
+      material.mimeType,
+    );
+
+    return {
+      buffer,
+      filename: material.title,
+      mimeType: material.mimeType || 'application/octet-stream',
     };
   }
 
@@ -269,6 +312,11 @@ export class LessonsService {
     await this.mediaService.deleteByPublicIds(
       [material.cloudinaryPublicId],
       UploadResourceType.RAW,
+    );
+    this.lessonIndexService.scheduleCleanupMedia(
+      material.lesson.courseId,
+      material.lessonId,
+      id,
     );
     await this.lessonsRepository.deleteMaterial(id);
   }

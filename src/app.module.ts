@@ -16,6 +16,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { ProgressModule } from './modules/progress/progress.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { FoundersModule } from './modules/founders/founders.module';
+import { AiModule } from './modules/ai/ai.module';
 import { LandingSectionsModule } from './modules/landing-sections/landing-sections.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 
@@ -35,6 +36,7 @@ import { TelegramModule } from './modules/telegram/telegram.module';
     ProgressModule,
     EnrollmentsModule,
     FoundersModule,
+    AiModule,
     LandingSectionsModule,
     TelegramModule,
   ],

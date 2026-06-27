@@ -16,7 +16,10 @@ export class LandingSectionsService {
     return rows.map(toDto);
   }
 
-  async update(slug: string, dto: UpdateLandingSectionDto): Promise<LandingSectionDto> {
+  async update(
+    slug: string,
+    dto: UpdateLandingSectionDto,
+  ): Promise<LandingSectionDto> {
     this.assertValidSlug(slug);
 
     try {

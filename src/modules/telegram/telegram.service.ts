@@ -19,8 +19,10 @@ export class TelegramService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit(): void {
-    this.botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN')?.trim() || null;
-    this.chatId = this.configService.get<string>('TELEGRAM_CHAT_ID')?.trim() || null;
+    this.botToken =
+      this.configService.get<string>('TELEGRAM_BOT_TOKEN')?.trim() || null;
+    this.chatId =
+      this.configService.get<string>('TELEGRAM_CHAT_ID')?.trim() || null;
 
     if (!this.botToken || !this.chatId) {
       this.logger.warn(
@@ -48,7 +50,10 @@ export class TelegramService implements OnModuleInit {
       `🕐 <b>Дата:</b> ${this.escapeHtml(when)}`,
     ].join('\n');
 
-    await this.sendMessage(text, `${title} — ${payload.email} — ${payload.courseTitle}`);
+    await this.sendMessage(
+      text,
+      `${title} — ${payload.email} — ${payload.courseTitle}`,
+    );
   }
 
   private titleForEvent(event: EnrollmentTelegramEvent): string {
@@ -65,18 +70,25 @@ export class TelegramService implements OnModuleInit {
   private async verifyBot(): Promise<void> {
     if (!this.botToken) return;
 
-    const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getMe`);
+    const response = await fetch(
+      `https://api.telegram.org/bot${this.botToken}/getMe`,
+    );
     if (!response.ok) {
       const body = await response.text();
       throw new Error(`getMe failed (${response.status}): ${body}`);
     }
 
-    const data = (await response.json()) as { ok: boolean; result?: { username?: string } };
+    const data = (await response.json()) as {
+      ok: boolean;
+      result?: { username?: string };
+    };
     if (!data.ok) {
       throw new Error('getMe returned ok=false');
     }
 
-    this.logger.log(`Telegram bot connected: @${data.result?.username ?? 'unknown'}`);
+    this.logger.log(
+      `Telegram bot connected: @${data.result?.username ?? 'unknown'}`,
+    );
   }
 
   private async sendMessage(text: string, devFallback: string): Promise<void> {

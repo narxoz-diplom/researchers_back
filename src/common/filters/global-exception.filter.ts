@@ -17,6 +17,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
     let error = 'Internal Server Error';
+    let extraFields: Record<string, unknown> = {};
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -33,6 +34,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             : exception.message;
         const rawError = body.error ?? exception.name;
         error = typeof rawError === 'string' ? rawError : exception.name;
+        extraFields = Object.fromEntries(
+          Object.entries(body).filter(
+            ([key]) => !['message', 'error', 'statusCode'].includes(key),
+          ),
+        );
       }
     } else if (exception instanceof Error) {
       message = exception.message;
@@ -45,6 +51,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error,
       timestamp: new Date().toISOString(),
       path: request.url,
+      ...extraFields,
     });
   }
 }

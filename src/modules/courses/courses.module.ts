@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { VectorModule } from '../vector/vector.module';
 import { CourseOwnerGuard } from '../../common/guards/course-owner.guard';
 import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { MediaModule } from '../media/media.module';
@@ -8,7 +9,7 @@ import { CoursesService } from './courses.service';
 import { PrismaCoursesRepository } from './prisma-courses.repository';
 
 @Module({
-  imports: [EnrollmentsModule, MediaModule],
+  imports: [EnrollmentsModule, MediaModule, VectorModule],
   controllers: [CoursesController],
   providers: [
     CoursesService,

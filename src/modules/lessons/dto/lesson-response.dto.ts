@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { LessonVectorIndexStatus } from '@prisma/client';
 
 export class LessonSummaryResponseDto {
   @ApiProperty()
@@ -66,6 +67,21 @@ export class LessonDetailResponseDto extends LessonSummaryResponseDto {
 
   @ApiProperty()
   updatedAt: string;
+
+  @ApiProperty({ enum: LessonVectorIndexStatus })
+  vectorIndexStatus: LessonVectorIndexStatus;
+
+  @ApiPropertyOptional()
+  vectorIndexJobId?: string | null;
+
+  @ApiPropertyOptional()
+  vectorIndexedAt?: string | null;
+
+  @ApiPropertyOptional()
+  vectorIndexErrorId?: string | null;
+
+  @ApiPropertyOptional()
+  vectorIndexErrorCode?: string | null;
 }
 
 export class LessonVideoEntityDto extends LessonVideoResponseDto {

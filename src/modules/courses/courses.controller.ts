@@ -60,7 +60,9 @@ export class CoursesController {
   @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
-  @ApiOperation({ summary: 'Course details (public for published; optional auth)' })
+  @ApiOperation({
+    summary: 'Course details (public for published; optional auth)',
+  })
   @ApiResponse({ status: 200, type: CourseDetailDto })
   @ApiResponse({ status: 404, description: 'Course not found' })
   getById(

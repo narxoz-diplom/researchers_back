@@ -58,6 +58,9 @@ jobs:
       JWT_REFRESH_TTL: 7d
       CORS_ORIGINS: http://localhost:5173
       NODE_ENV: test
+      AI_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      RAG_SERVICE_URL: http://rag.test
+      RAG_SERVICE_API_KEY: ci-rag-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

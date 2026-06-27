@@ -23,7 +23,9 @@ import { LandingSectionsService } from './landing-sections.service';
 @ApiTags('landing-sections')
 @Controller('landing-sections')
 export class LandingSectionsController {
-  constructor(private readonly landingSectionsService: LandingSectionsService) {}
+  constructor(
+    private readonly landingSectionsService: LandingSectionsService,
+  ) {}
 
   @Public()
   @Get()
@@ -37,7 +39,9 @@ export class LandingSectionsController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @Patch(':slug')
-  @ApiOperation({ summary: 'Update landing section description (author/admin)' })
+  @ApiOperation({
+    summary: 'Update landing section description (author/admin)',
+  })
   @ApiResponse({ status: 200, type: LandingSectionDto })
   update(
     @Param('slug') slug: string,
