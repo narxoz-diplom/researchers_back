@@ -31,7 +31,19 @@ fi
 
 NEW_API_TAG="${1:-${API_IMAGE_TAG:-latest}}"
 NEW_WEB_TAG="${2:-${WEB_IMAGE_TAG:-latest}}"
-NEW_RAG_TAG="${3:-${RAG_IMAGE_TAG:-latest}}"
+
+PREV_RAG_TAG="$(cat .last-rag-tag 2>/dev/null || echo "")"
+
+# RAG tag: explicit CLI arg > env > last successful deploy > latest
+if [[ -n "${3:-}" ]]; then
+  NEW_RAG_TAG="$3"
+elif [[ -n "${RAG_IMAGE_TAG:-}" ]]; then
+  NEW_RAG_TAG="${RAG_IMAGE_TAG}"
+elif [[ -n "${PREV_RAG_TAG}" ]]; then
+  NEW_RAG_TAG="${PREV_RAG_TAG}"
+else
+  NEW_RAG_TAG="latest"
+fi
 
 : "${IMAGE_OWNER:?IMAGE_OWNER must be set in ${ENV_FILE}}"
 : "${DOMAIN:?DOMAIN must be set in ${ENV_FILE}}"
@@ -41,10 +53,22 @@ COMPOSE=(docker compose --env-file "${ENV_FILE}" -f docker-compose.prod.yml)
 PREV_API_TAG="$(cat .last-api-tag 2>/dev/null || echo "")"
 PREV_WEB_TAG="$(cat .last-web-tag 2>/dev/null || echo "")"
 
-PREV_RAG_TAG="$(cat .last-rag-tag 2>/dev/null || echo "")"
-
 echo "==> Deploying api=${NEW_API_TAG} web=${NEW_WEB_TAG} rag=${NEW_RAG_TAG}"
 echo "    previous: api=${PREV_API_TAG:-none} web=${PREV_WEB_TAG:-none} rag=${PREV_RAG_TAG:-none}"
+
+RAG_IMAGE="ghcr.io/${IMAGE_OWNER}/rag-service:${NEW_RAG_TAG}"
+if [[ -x "${SCRIPT_DIR}/verify-ghcr-rag.sh" ]]; then
+  if ! bash "${SCRIPT_DIR}/verify-ghcr-rag.sh" "${RAG_IMAGE}" 2>/dev/null; then
+    if [[ "${NEW_RAG_TAG}" != "latest" ]] || [[ -z "${PREV_RAG_TAG}" ]] || [[ "${PREV_RAG_TAG}" == "latest" ]]; then
+      bash "${SCRIPT_DIR}/verify-ghcr-rag.sh" "${RAG_IMAGE}"
+    else
+      echo "    WARN: rag-service:latest not found, falling back to .last-rag-tag=${PREV_RAG_TAG}" >&2
+      NEW_RAG_TAG="${PREV_RAG_TAG}"
+      RAG_IMAGE="ghcr.io/${IMAGE_OWNER}/rag-service:${NEW_RAG_TAG}"
+      bash "${SCRIPT_DIR}/verify-ghcr-rag.sh" "${RAG_IMAGE}"
+    fi
+  fi
+fi
 
 API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \

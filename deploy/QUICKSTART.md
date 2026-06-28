@@ -319,15 +319,23 @@ ssh researchers-vps "chmod 600 /home/deploy/researchers/.env.production && ls -l
 
 ## Часть 8. PAT для GHCR (`GHCR_PAT`)
 
-1. Создайте токен: https://github.com/settings/tokens/new → scope **`read:packages`**
+1. Создайте **classic** PAT: https://github.com/settings/tokens/new → scope **`read:packages`**
    (для org — доступ к организации и пакетам).
-2. Добавьте его в **Environment → production → Secrets** как **`GHCR_PAT`**
-   в обоих репозиториях (`researchers_back`, `researchers_front`).
+
+   > **Fine-grained PAT:** если используете fine-grained токен, в разделе **Repository access**
+   > / **Packages** нужно явно добавить пакет **`rag-service`**, иначе `researchers-api` /
+   > `researchers-web` будут тянуться, а `rag-service` — **403 Forbidden**.
+
+2. Добавьте токен в **Environment → production → Secrets** как **`GHCR_PAT`**
+   во всех репозиториях с deploy (`researchers_back`, `researchers_front`, `RAG_service`).
+
+3. (Опционально) **`GHCR_USER`** — GitHub username владельца PAT (не `narxoz-diplom`).
 
 Проверка на VPS:
 
 ```bash
 echo "ghp_ваш_токен" | docker login ghcr.io -u zhubanyshzh --password-stdin
+docker pull ghcr.io/narxoz-diplom/rag-service:latest
 ```
 
 (`zhubanyshzh` — **ваш GitHub username**, не slug организации `narxoz-diplom`. Образы лежат в `ghcr.io/narxoz-diplom/...`, но логин всегда под личным аккаунтом, которому выдали PAT.
@@ -376,7 +384,15 @@ workflow'ы `Deploy API` и `Deploy Web`. Шаг **deploy** в них упадё
 
 1. Откройте https://github.com/users/your-github-user/packages/container/researchers-api/settings
 2. Внизу — **Danger Zone → Change visibility → Public** (если хотите без PAT).
-3. То же для `researchers-web`.
+3. То же для `researchers-web` и **`rag-service`** (репозиторий `RAG_service`, ветка `researchers`):
+   `https://github.com/orgs/narxoz-diplom/packages/container/rag-service/settings`
+   — либо **Public**, либо PAT с `read:packages` и доступ org-пакетам (см. ниже).
+
+Если `docker pull ghcr.io/.../rag-service:...` возвращает **403 Forbidden** при успешном
+`docker login` — PAT не видит пакет `rag-service`. Варианты:
+- Сделать пакет **Public** (проще для одного VPS).
+- Либо в GitHub → **Organization settings → Packages** → разрешить PAT доступ к packages.
+- Либо в настройках пакета `rag-service` → **Manage Actions access** → добавить репозиторий `rag_service`.
 
 Если оставляете приватными — убедитесь, что `docker login` из части 8 успешен.
 
@@ -603,13 +619,61 @@ ls -la /home/deploy/.ssh
 # .ssh = 700, authorized_keys = 600, owner = deploy:deploy
 ```
 
-### `Error response from daemon: pull access denied for ghcr.io/...`
+### `rag-service:latest: not found` (backend/front deploy)
+
+Образ RAG ещё не залит в GHCR или тег `latest` не создан. **Сначала** успешно прогоните
+workflow **Deploy RAG** в репозитории `RAG_service` (ветка `researchers`).
+
+Проверка на VPS:
+```bash
+docker pull ghcr.io/narxoz-diplom/rag-service:latest
+# или конкретный sha из Actions:
+docker pull ghcr.io/narxoz-diplom/rag-service:sha-86643b84375f
+```
+
+Backend/front deploy **не обновляет** RAG, если не передан 3-й аргумент — используется
+`.last-rag-tag` на VPS. При первом деплое RAG обязателен.
+
+### `403 Forbidden` только на `rag-service` (api/web тянутся нормально)
+
+Пакет **`rag-service`** создан отдельным репозиторием и по умолчанию **приватный**.
+PAT видит `researchers-api` / `researchers-web` (public или уже в scope), но не `rag-service`.
+
+**Исправление за 1 минуту (рекомендуется):**
+
+1. https://github.com/orgs/narxoz-diplom/packages/container/rag-service/settings
+2. **Package settings** → **Change package visibility** → **Public**
+3. На VPS проверьте:
+   ```bash
+   docker pull ghcr.io/narxoz-diplom/rag-service:latest
+   ```
+4. Re-run deploy в GitHub Actions
+
+**Альтернатива (оставить private):** Package settings → **Manage access** → добавить
+GitHub-пользователя, которому принадлежит `GHCR_PAT`, с ролью Read. Либо пересоздайте
+classic PAT с `read:packages` + SSO для org.
+
+### `Error response from daemon: pull access denied for ghcr.io/...` или `403 Forbidden` (общее)
 Не сделан шаг 8 (login в GHCR), либо пакет приватный и токен не имеет
 `read:packages`, либо `IMAGE_OWNER` в `.env.production` написан не в нижнем
-регистре. Имя в GHCR всегда в нижнем регистре.
+регистре. Имя в GHCR всегда в нижнем регистре. Для **`rag-service`** отдельно:
+сделайте пакет Public (часть 10) или выдайте PAT доступ к org-пакетам.
 
 ### `nginx: [emerg] cannot load certificate "/etc/letsencrypt/live/example.com/fullchain.pem"`
 Сертификат ещё не выпущен. Запустите `bash deploy/scripts/issue-cert.sh`.
+
+### `P3018` — migration failed (`column "category" does not exist`)
+
+Миграция упала и блокирует следующие. После push fix в `researchers_back`:
+
+```bash
+cd ~/researchers
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
+  npx prisma migrate resolve --rolled-back 20250623120000_course_section_categories
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate
+```
+
+Затем re-run deploy или `bash deploy/scripts/deploy.sh`.
 
 ### `502 Bad Gateway` от nginx
 API не отвечает. Смотрите:
