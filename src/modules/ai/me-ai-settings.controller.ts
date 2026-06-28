@@ -28,7 +28,7 @@ import { UpdateAuthorAiSettingsDto } from './dto/update-ai-settings.dto';
 export class MeAiSettingsController {
   constructor(private readonly authorAiSettings: AuthorAiSettingsService) {}
 
-  @Roles(Role.AUTHOR)
+  @Roles(Role.AUTHOR, Role.ADMIN)
   @Get()
   @ApiOperation({ summary: 'Get author AI settings (no plaintext API key)' })
   @ApiResponse({ status: 200, type: AuthorAiSettingsResponseDto })
@@ -39,7 +39,7 @@ export class MeAiSettingsController {
     return this.authorAiSettings.getSettings(user.id);
   }
 
-  @Roles(Role.AUTHOR)
+  @Roles(Role.AUTHOR, Role.ADMIN)
   @Patch()
   @ApiOperation({ summary: 'Save Google AI Studio API key for the author' })
   @ApiResponse({ status: 200, type: AuthorAiSettingsResponseDto })
@@ -51,7 +51,7 @@ export class MeAiSettingsController {
     return this.authorAiSettings.upsertKey(user.id, dto.apiKey);
   }
 
-  @Roles(Role.AUTHOR)
+  @Roles(Role.AUTHOR, Role.ADMIN)
   @Delete()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove stored author API key' })

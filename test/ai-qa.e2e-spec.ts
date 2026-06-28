@@ -22,6 +22,7 @@ describe('AI QA (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let authorToken: string;
+  let adminToken: string;
   let subscriberToken: string;
   let subscriberId: string;
   let courseId: string;
@@ -221,6 +222,15 @@ describe('AI QA (e2e)', () => {
       })
       .expect(200);
     authorToken = (authorLogin.body as { accessToken: string }).accessToken;
+
+    const adminLogin = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({
+        email: 'admin@researchers.local',
+        password: 'Admin123!',
+      })
+      .expect(200);
+    adminToken = (adminLogin.body as { accessToken: string }).accessToken;
 
     const subscriberLogin = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -784,6 +794,47 @@ describe('AI QA (e2e)', () => {
       });
 
       expect(ragClientMock.generateSingleLesson).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Admin AI settings', () => {
+    it('admin can read own author AI settings (profile tab)', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/users/me/ai-settings')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+    });
+
+    it('admin manages platform subscriber chat key', async () => {
+      const saveRes = await request(app.getHttpServer())
+        .patch('/api/v1/admin/ai-settings/subscriber-chat')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ apiKey: 'AIzaSyTestPlatformChatKey1234567890' })
+        .expect(200);
+
+      expect(saveRes.body).toMatchObject({
+        hasApiKey: true,
+        keyHint: '7890',
+      });
+
+      const getRes = await request(app.getHttpServer())
+        .get('/api/v1/admin/ai-settings/subscriber-chat')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect((getRes.body as { hasApiKey: boolean }).hasApiKey).toBe(true);
+
+      await request(app.getHttpServer())
+        .delete('/api/v1/admin/ai-settings/subscriber-chat')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+    });
+
+    it('author cannot access platform subscriber chat settings', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/admin/ai-settings/subscriber-chat')
+        .set('Authorization', `Bearer ${authorToken}`)
+        .expect(403);
     });
   });
 });
