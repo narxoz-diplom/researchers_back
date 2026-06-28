@@ -126,19 +126,10 @@ services:
       - chroma_data:/data
     networks:
       - internal
+    # chromadb/chroma:1.5.3 runs fine but the image has no curl/python in PATH.
+    # Probed from api/rag via deploy.sh; do not gate RAG on service_healthy.
     healthcheck:
-      # chromadb image has Python but often no curl — urllib probe works reliably
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/api/v2/heartbeat',timeout=5); sys.exit(0 if r.status==200 else 1)",
-        ]
-      interval: 15s
-      timeout: 10s
-      retries: 8
-      start_period: 60s
+      disable: true
 
   rag:
     image: ghcr.io/${IMAGE_OWNER}/rag-service:${RAG_IMAGE_TAG:-latest}
@@ -147,7 +138,7 @@ services:
     logging: *default-logging
     depends_on:
       chromadb:
-        condition: service_healthy
+        condition: service_started
     environment:
       UVICORN_WORKERS: ${RAG_UVICORN_WORKERS:-2}
       CHROMA_HOST: chromadb

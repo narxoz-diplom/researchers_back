@@ -106,6 +106,24 @@ WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
 RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
   "${COMPOSE[@]}" up -d --remove-orphans
 
+echo "==> Waiting for ChromaDB heartbeat"
+chroma_ok=0
+for i in $(seq 1 60); do
+  if API_IMAGE_TAG="${NEW_API_TAG}" WEB_IMAGE_TAG="${NEW_WEB_TAG}" RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
+    "${COMPOSE[@]}" run --rm --no-deps api \
+    curl -fsS http://chromadb:8000/api/v2/heartbeat >/dev/null 2>&1; then
+    echo "    ChromaDB heartbeat OK (attempt ${i})"
+    chroma_ok=1
+    break
+  fi
+  sleep 2
+done
+if [[ "${chroma_ok}" -ne 1 ]]; then
+  echo "ERROR: ChromaDB did not respond to /api/v2/heartbeat in time" >&2
+  "${COMPOSE[@]}" logs --tail=100 chromadb || true
+  exit 1
+fi
+
 # Edge renders nginx from host-mounted templates at container start; recreate so
 # deploy/nginx changes (e.g. proxy keepalive) apply without a manual step.
 API_IMAGE_TAG="${NEW_API_TAG}" \

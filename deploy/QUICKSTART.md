@@ -699,26 +699,21 @@ API_IMAGE_TAG=sha-c2625cfd495a docker compose --env-file .env.production -f dock
 
 > Первая команда без `cd ~/researchers` даст `couldn't find env file` — файл лежит в `~/researchers/.env.production`.
 
-### `chromadb is unhealthy` / `dependency failed to start: chromadb`
+### `chromadb is unhealthy` / `curl not found` inside chromadb container
 
-Образ `chromadb/chroma` часто **не содержит curl**, а healthcheck в compose использовал
-`curl` → контейнер всегда `unhealthy`, RAG не стартует.
-
-**После push fix** (python healthcheck + pin `1.5.3`) на VPS:
+Chroma **работает** (логи: `Connect to Chroma at: http://localhost:8000`), но образ
+**не содержит curl/python** — проверять heartbeat нужно **из api**, не из chromadb:
 
 ```bash
 cd ~/researchers
-docker compose --env-file .env.production -f docker-compose.prod.yml pull chromadb
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d chromadb rag api
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm --no-deps api \
+  curl -fsS http://chromadb:8000/api/v2/heartbeat
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d rag api edge
 docker compose --env-file .env.production -f docker-compose.prod.yml ps
 ```
 
-Проверка health:
-
-```bash
-docker inspect researchers-chromadb --format='{{.State.Health.Status}}'
-# должно быть: healthy
-```
+В compose для chromadb: `healthcheck: disable: true`, RAG — `depends_on: service_started`.
 
 ### `502 Bad Gateway` от nginx
 API не отвечает. Смотрите:
