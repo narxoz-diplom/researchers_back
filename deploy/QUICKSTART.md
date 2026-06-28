@@ -699,6 +699,27 @@ API_IMAGE_TAG=sha-c2625cfd495a docker compose --env-file .env.production -f dock
 
 > Первая команда без `cd ~/researchers` даст `couldn't find env file` — файл лежит в `~/researchers/.env.production`.
 
+### `chromadb is unhealthy` / `dependency failed to start: chromadb`
+
+Образ `chromadb/chroma` часто **не содержит curl**, а healthcheck в compose использовал
+`curl` → контейнер всегда `unhealthy`, RAG не стартует.
+
+**После push fix** (python healthcheck + pin `1.5.3`) на VPS:
+
+```bash
+cd ~/researchers
+docker compose --env-file .env.production -f docker-compose.prod.yml pull chromadb
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d chromadb rag api
+docker compose --env-file .env.production -f docker-compose.prod.yml ps
+```
+
+Проверка health:
+
+```bash
+docker inspect researchers-chromadb --format='{{.State.Health.Status}}'
+# должно быть: healthy
+```
+
 ### `502 Bad Gateway` от nginx
 API не отвечает. Смотрите:
 ```bash
