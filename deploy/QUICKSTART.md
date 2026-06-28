@@ -662,18 +662,33 @@ classic PAT с `read:packages` + SSO для org.
 ### `nginx: [emerg] cannot load certificate "/etc/letsencrypt/live/example.com/fullchain.pem"`
 Сертификат ещё не выпущен. Запустите `bash deploy/scripts/issue-cert.sh`.
 
-### `P3018` — migration failed (`column "category" does not exist`)
+### `P3009` / `P3018` — failed migration blocks deploy
 
-Миграция упала и блокирует следующие. После push fix в `researchers_back`:
+Прошлый deploy упал на миграции `20250623120000_course_section_categories`. Prisma
+не продолжит, пока failed-запись не сброшена.
+
+**На VPS (один раз):**
 
 ```bash
+ssh deploy@YOUR_VPS
 cd ~/researchers
-docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
-  npx prisma migrate resolve --rolled-back 20250623120000_course_section_categories
-docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate
+chmod +x deploy/scripts/*.sh
+bash deploy/scripts/migrate-recover-failed.sh
 ```
 
-Затем re-run deploy или `bash deploy/scripts/deploy.sh`.
+Или вручную:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
+  npx prisma migrate resolve --rolled-back 20250623120000_course_section_categories
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
+  npx prisma migrate deploy
+```
+
+Затем **Re-run** deploy в GitHub Actions (Deploy API).
+
+> Fix для `category` column уже в `main` (образ `sha-f29f565dee56` и новее). Recovery
+> только снимает блокировку — повторный `migrate deploy` применит исправленный SQL.
 
 ### `502 Bad Gateway` от nginx
 API не отвечает. Смотрите:
