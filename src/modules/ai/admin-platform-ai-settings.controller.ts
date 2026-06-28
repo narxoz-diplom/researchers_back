@@ -24,14 +24,13 @@ import { PlatformAiSettingsService } from './platform-ai-settings.service';
 @ApiBearerAuth()
 @Controller('admin/ai-settings')
 export class AdminPlatformAiSettingsController {
-  constructor(
-    private readonly platformAiSettings: PlatformAiSettingsService,
-  ) {}
+  constructor(private readonly platformAiSettings: PlatformAiSettingsService) {}
 
   @Roles(Role.ADMIN)
   @Get('subscriber-chat')
   @ApiOperation({
-    summary: 'Get platform Gemini key for subscriber lesson chat (no plaintext)',
+    summary:
+      'Get platform Gemini key for subscriber lesson chat (no plaintext)',
   })
   @ApiResponse({ status: 200, type: AuthorAiSettingsResponseDto })
   @ApiCommonErrors(401, 403)

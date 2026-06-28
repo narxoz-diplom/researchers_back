@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiKeyCryptoService } from './ai-key-crypto.service';
