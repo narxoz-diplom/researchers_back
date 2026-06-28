@@ -664,31 +664,40 @@ classic PAT с `read:packages` + SSO для org.
 
 ### `P3009` / `P3018` — failed migration blocks deploy
 
-Прошлый deploy упал на миграции `20250623120000_course_section_categories`. Prisma
-не продолжит, пока failed-запись не сброшена.
+**Причина:** контейнер `migrate` берёт SQL из **Docker-образа** `researchers-api`, не с диска VPS.
+Если образ старый, снова выполнится `UPDATE "category"` без `ADD COLUMN IF NOT EXISTS`.
 
-**На VPS (один раз):**
+**Быстрое исправление на VPS** (из `~/researchers`, подставьте свой sha из Deploy API):
 
 ```bash
-ssh deploy@YOUR_VPS
 cd ~/researchers
-chmod +x deploy/scripts/*.sh
-bash deploy/scripts/migrate-recover-failed.sh
+export API_IMAGE_TAG=sha-c2625cfd495a   # последний успешный build API в Actions
+bash deploy/scripts/migrate-fix-category-column.sh
 ```
 
 Или вручную:
 
 ```bash
-docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
-  npx prisma migrate resolve --rolled-back 20250623120000_course_section_categories
-docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
+cd ~/researchers
+source .env.production
+
+# 1. SQL напрямую в Postgres
+docker compose --env-file .env.production -f docker-compose.prod.yml exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+  'ALTER TABLE "Course" ADD COLUMN IF NOT EXISTS "category" TEXT NOT NULL DEFAULT '\''publication'\'';'
+
+# 2. Снять failed + пометить миграцию выполненной (образ API — свежий sha!)
+API_IMAGE_TAG=sha-c2625cfd495a docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
+  npx prisma migrate resolve --rolled-back 20250623120000_course_section_categories || true
+API_IMAGE_TAG=sha-c2625cfd495a docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
+  npx prisma migrate resolve --applied 20250623120000_course_section_categories
+API_IMAGE_TAG=sha-c2625cfd495a docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate \
   npx prisma migrate deploy
 ```
 
-Затем **Re-run** deploy в GitHub Actions (Deploy API).
+Затем **Re-run** deploy в GitHub Actions.
 
-> Fix для `category` column уже в `main` (образ `sha-f29f565dee56` и новее). Recovery
-> только снимает блокировку — повторный `migrate deploy` применит исправленный SQL.
+> Первая команда без `cd ~/researchers` даст `couldn't find env file` — файл лежит в `~/researchers/.env.production`.
 
 ### `502 Bad Gateway` от nginx
 API не отвечает. Смотрите:

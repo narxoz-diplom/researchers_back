@@ -53,6 +53,27 @@ COMPOSE=(docker compose --env-file "${ENV_FILE}" -f docker-compose.prod.yml)
 PREV_API_TAG="$(cat .last-api-tag 2>/dev/null || echo "")"
 PREV_WEB_TAG="$(cat .last-web-tag 2>/dev/null || echo "")"
 
+compose_migrate() {
+  API_IMAGE_TAG="${NEW_API_TAG}" \
+  WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
+  RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
+    "${COMPOSE[@]}" run --rm migrate "$@"
+}
+
+recover_failed_prisma_migrations() {
+  local status
+  status="$(compose_migrate npx prisma migrate status 2>&1)" || true
+  if ! echo "${status}" | grep -qi 'failed'; then
+    return 0
+  fi
+  echo "==> Failed Prisma migrations detected, attempting safe recovery"
+  # One-time prod recovery: SQL fix is idempotent (ADD COLUMN IF NOT EXISTS).
+  if echo "${status}" | grep -q '20250623120000_course_section_categories'; then
+    echo "    resolve --rolled-back 20250623120000_course_section_categories"
+    compose_migrate npx prisma migrate resolve --rolled-back 20250623120000_course_section_categories
+  fi
+}
+
 echo "==> Deploying api=${NEW_API_TAG} web=${NEW_WEB_TAG} rag=${NEW_RAG_TAG}"
 echo "    previous: api=${PREV_API_TAG:-none} web=${PREV_WEB_TAG:-none} rag=${PREV_RAG_TAG:-none}"
 
@@ -76,10 +97,8 @@ RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
   "${COMPOSE[@]}" pull api web migrate rag chromadb
 
 echo "==> Running database migrations"
-API_IMAGE_TAG="${NEW_API_TAG}" \
-WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
-RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
-  "${COMPOSE[@]}" run --rm migrate
+recover_failed_prisma_migrations
+compose_migrate
 
 echo "==> Starting / updating stack"
 API_IMAGE_TAG="${NEW_API_TAG}" \
