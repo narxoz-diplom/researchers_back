@@ -63,6 +63,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      rag:
+        condition: service_started
     environment:
       NODE_ENV: production
       PORT: 8080
@@ -90,9 +92,6 @@ services:
       PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required}
       RAG_CALLBACK_SECRET: ${RAG_CALLBACK_SECRET:-}
       AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-}
-    depends_on:
-      rag:
-        condition: service_started
     networks:
       - internal
     healthcheck:
