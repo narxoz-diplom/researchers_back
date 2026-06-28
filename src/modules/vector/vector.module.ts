@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AiSettingsModule } from '../ai/ai-settings.module';
 import { MailModule } from '../mail/mail.module';
 import { MediaModule } from '../media/media.module';
 import { LessonIndexNotificationService } from './lesson-index-notification.service';
@@ -8,7 +9,7 @@ import { RagIndexCallbackController } from './rag-index-callback.controller';
 import { VectorIndexService } from './vector-index.service';
 
 @Module({
-  imports: [MailModule, MediaModule],
+  imports: [AiSettingsModule, MailModule, MediaModule],
   controllers: [RagIndexCallbackController],
   providers: [
     RagClientService,

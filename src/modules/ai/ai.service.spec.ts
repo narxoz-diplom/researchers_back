@@ -39,6 +39,9 @@ describe('AiService.startLessonGeneration', () => {
 
     service = new AiService(
       authorAiSettings as unknown as AuthorAiSettingsService,
+      {
+        getDecryptedSubscriberChatKey: jest.fn().mockResolvedValue('chat-key'),
+      } as unknown as import('./platform-ai-settings.service').PlatformAiSettingsService,
       {} as RagClientService,
       {} as LessonChatQuotaService,
       lessonGeneration as unknown as LessonGenerationService,

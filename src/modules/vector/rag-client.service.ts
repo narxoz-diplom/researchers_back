@@ -96,6 +96,9 @@ export class RagClientService {
     if (input.callbackUrl) {
       form.append('callback_url', input.callbackUrl);
     }
+    if (input.geminiApiKey) {
+      form.append('gemini_api_key', input.geminiApiKey);
+    }
 
     try {
       const response = await fetch(url, {

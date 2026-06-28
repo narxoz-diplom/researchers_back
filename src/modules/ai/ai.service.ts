@@ -13,6 +13,7 @@ import { LESSONS_REPOSITORY } from '../lessons/lessons.constants';
 import type { ILessonsRepository } from '../lessons/lessons.repository.interface';
 import { SELECTABLE_LLM_MODELS } from './ai.constants';
 import { AuthorAiSettingsService } from './author-ai-settings.service';
+import { PlatformAiSettingsService } from './platform-ai-settings.service';
 import { GenerateLessonContentDto } from './dto/generate-lesson-content.dto';
 import {
   LessonGenerationJobStatusDto,
@@ -33,6 +34,7 @@ export class AiService {
 
   constructor(
     private readonly authorAiSettings: AuthorAiSettingsService,
+    private readonly platformAiSettings: PlatformAiSettingsService,
     private readonly ragClient: RagClientService,
     private readonly lessonChatQuota: LessonChatQuotaService,
     private readonly lessonGeneration: LessonGenerationService,
@@ -104,6 +106,12 @@ export class AiService {
       throw new NotFoundException('Lesson not found');
     }
 
+    const chatApiKey =
+      await this.platformAiSettings.getDecryptedSubscriberChatKey();
+    if (!chatApiKey) {
+      throw new BadRequestException(ErrorCode.SUBSCRIBER_CHAT_AI_KEY_REQUIRED);
+    }
+
     const requestId = randomUUID();
     const response = await this.ragClient.askLesson(
       {
@@ -114,6 +122,7 @@ export class AiService {
           course_id: lesson.course.id,
         },
         top_k: 8,
+        gemini_api_key: chatApiKey,
       },
       requestId,
     );

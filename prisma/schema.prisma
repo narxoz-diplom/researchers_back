@@ -89,6 +89,14 @@ model AuthorAiSettings {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model PlatformAiSettings {
+  id                         String   @id @default("default")
+  subscriberChatEncryptedKey String?
+  subscriberChatKeyHint      String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
 model LessonChatUsage {
   id           String   @id @default(cuid())
   userId       String

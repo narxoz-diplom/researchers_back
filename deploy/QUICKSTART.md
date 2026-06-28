@@ -541,7 +541,8 @@ docker compose --env-file .env.production -f docker-compose.prod.yml \
 - [ ] `ssh -o PreferredAuthentications=password deploy@203.0.113.10` НЕ работает (только ключ).
 - [ ] Push в `main` в backend-репо триггерит `Deploy API`.
 - [ ] Push в `main` в frontend-репо триггерит `Deploy Web`.
-- [ ] `docker compose ps` на VPS показывает все 6 сервисов работающими.
+- [ ] Push в `researchers` в rag_service триггерит `Deploy RAG`.
+- [ ] `docker compose ps` на VPS показывает все сервисы работающими (включая `rag`, `chromadb`).
 - [ ] Workflow `Pull encrypted backup` создаёт артефакт.
 - [ ] AGE-приватный ключ сохранён в менеджере паролей и стёрт с ноута.
 
@@ -558,12 +559,20 @@ docker compose --env-file .env.production -f docker-compose.prod.yml \
 
 1. **Google AI Studio API-ключ** — профиль → вкладка AI (BYOK; ключ не показывается после сохранения).
 2. **Индекс материалов READY** — после загрузки PDF/текста дождитесь завершения индексации урока.
-3. **RAG-сервис** — на VPS в `.env.production` backend:
+3. **RAG-сервис** — в `.env.production` на VPS (см. `.env.production.example`):
    ```ini
    RAG_SERVICE_URL=http://rag:8000
-   RAG_SERVICE_API_KEY=...
-   AI_ENCRYPTION_KEY=...   # base64, 32 bytes — для шифрования ключей авторов
+   RAG_SERVICE_API_KEY=...          # openssl rand -hex 32
+   AI_ENCRYPTION_KEY=...            # openssl rand -base64 32
+   PUBLIC_API_URL=https://example.com
+   RAG_CALLBACK_SECRET=...          # openssl rand -hex 32
+   RAG_IMAGE_TAG=latest
    ```
+   **Gemini API-ключи не хранятся в `.env.production`:**
+   - авторы — BYOK в профиле (Studio → AI);
+   - подписчики — один ключ задаёт админ в **Admin → AI (чат)**.
+   RAG деплоится из репозитория `narxoz-diplom/rag_service`, ветка **`researchers`**
+   (workflow `Deploy RAG`). Образ: `ghcr.io/narxoz-diplom/rag-service`.
 
 ### Параметры генерации
 

@@ -83,6 +83,7 @@ export interface RagAskRequest {
     course_id: string;
   };
   top_k?: number;
+  gemini_api_key?: string;
 }
 
 export interface RagAskResponse {
@@ -102,6 +103,7 @@ export interface RagVectorizeTextRequest {
     content_type: string;
   };
   callback_url?: string;
+  gemini_api_key?: string;
 }
 
 export interface RagVectorizeTextResponse {
@@ -132,4 +134,5 @@ export interface RagIngestFileInput {
   metadata: Record<string, string>;
   collectionName: string;
   callbackUrl?: string;
+  geminiApiKey?: string;
 }

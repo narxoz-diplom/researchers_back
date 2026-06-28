@@ -7,6 +7,7 @@ import { LessonIndexErrorCode } from './lesson-index.constants';
 import { LessonIndexNotificationService } from './lesson-index-notification.service';
 import { MediaService } from '../media/media.service';
 import { UploadResourceType } from '../media/media.types';
+import { AuthorAiSettingsService } from '../ai/author-ai-settings.service';
 import { RagClientService } from './rag-client.service';
 import { VectorIndexService } from './vector-index.service';
 
@@ -28,6 +29,7 @@ export class LessonIndexService {
     private readonly vectorIndex: VectorIndexService,
     private readonly notifications: LessonIndexNotificationService,
     private readonly mediaService: MediaService,
+    private readonly authorAiSettings: AuthorAiSettingsService,
   ) {}
 
   scheduleReindex(lessonId: string): void {
@@ -138,6 +140,20 @@ export class LessonIndexService {
       return;
     }
 
+    const authorApiKey = await this.authorAiSettings.getDecryptedKey(
+      lesson.course.authorId,
+    );
+    if (!authorApiKey) {
+      this.logger.warn(
+        `Lesson reindex skipped: author has no AI key lessonId=${lessonId}`,
+      );
+      await this.prisma.lesson.update({
+        where: { id: lessonId },
+        data: { vectorIndexStatus: LessonVectorIndexStatus.FAILED },
+      });
+      return;
+    }
+
     const taskKeys: string[] = [];
     const hasText =
       lesson.title.trim().length > 0 || lesson.content.trim().length > 0;
@@ -203,6 +219,7 @@ export class LessonIndexService {
                 content_type: 'lesson_text',
               },
               callback_url: callbackUrl,
+              gemini_api_key: authorApiKey,
             },
             requestId,
           );
@@ -227,6 +244,7 @@ export class LessonIndexService {
               filename,
               collectionName,
               callbackUrl,
+              geminiApiKey: authorApiKey,
               metadata: {
                 course_id: lesson.courseId,
                 lesson_id: lesson.id,
@@ -259,6 +277,7 @@ export class LessonIndexService {
               filename,
               collectionName,
               callbackUrl,
+              geminiApiKey: authorApiKey,
               metadata: {
                 course_id: lesson.courseId,
                 lesson_id: lesson.id,

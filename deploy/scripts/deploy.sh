@@ -6,8 +6,9 @@
 # .last-api-tag so rollback.sh can restore it.
 #
 # Usage:
-#   deploy.sh                                   # use API_IMAGE_TAG / WEB_IMAGE_TAG from .env.production
-#   deploy.sh <api-tag> <web-tag>               # explicit
+#   deploy.sh                                   # use API_IMAGE_TAG / WEB_IMAGE_TAG / RAG_IMAGE_TAG from .env.production
+#   deploy.sh <api-tag> <web-tag>               # explicit api + web
+#   deploy.sh <api-tag> <web-tag> <rag-tag>     # explicit all three
 #   API_IMAGE_TAG=sha-abc deploy.sh             # via env
 
 set -euo pipefail
@@ -30,6 +31,7 @@ fi
 
 NEW_API_TAG="${1:-${API_IMAGE_TAG:-latest}}"
 NEW_WEB_TAG="${2:-${WEB_IMAGE_TAG:-latest}}"
+NEW_RAG_TAG="${3:-${RAG_IMAGE_TAG:-latest}}"
 
 : "${IMAGE_OWNER:?IMAGE_OWNER must be set in ${ENV_FILE}}"
 : "${DOMAIN:?DOMAIN must be set in ${ENV_FILE}}"
@@ -39,33 +41,39 @@ COMPOSE=(docker compose --env-file "${ENV_FILE}" -f docker-compose.prod.yml)
 PREV_API_TAG="$(cat .last-api-tag 2>/dev/null || echo "")"
 PREV_WEB_TAG="$(cat .last-web-tag 2>/dev/null || echo "")"
 
-echo "==> Deploying api=${NEW_API_TAG} web=${NEW_WEB_TAG}"
-echo "    previous: api=${PREV_API_TAG:-none} web=${PREV_WEB_TAG:-none}"
+PREV_RAG_TAG="$(cat .last-rag-tag 2>/dev/null || echo "")"
+
+echo "==> Deploying api=${NEW_API_TAG} web=${NEW_WEB_TAG} rag=${NEW_RAG_TAG}"
+echo "    previous: api=${PREV_API_TAG:-none} web=${PREV_WEB_TAG:-none} rag=${PREV_RAG_TAG:-none}"
 
 API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
-  "${COMPOSE[@]}" pull api web migrate
+RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
+  "${COMPOSE[@]}" pull api web migrate rag chromadb
 
 echo "==> Running database migrations"
 API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
+RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
   "${COMPOSE[@]}" run --rm migrate
 
 echo "==> Starting / updating stack"
 API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
+RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
   "${COMPOSE[@]}" up -d --remove-orphans
 
 # Edge renders nginx from host-mounted templates at container start; recreate so
 # deploy/nginx changes (e.g. proxy keepalive) apply without a manual step.
 API_IMAGE_TAG="${NEW_API_TAG}" \
 WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
+RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
   "${COMPOSE[@]}" up -d --force-recreate edge
 
 echo "==> Waiting for API healthcheck (inside container)"
 healthy=0
 for i in $(seq 1 45); do
-  if API_IMAGE_TAG="${NEW_API_TAG}" WEB_IMAGE_TAG="${NEW_WEB_TAG}" \
+  if API_IMAGE_TAG="${NEW_API_TAG}" WEB_IMAGE_TAG="${NEW_WEB_TAG}" RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
     "${COMPOSE[@]}" exec -T api curl -fsS http://127.0.0.1:8080/api/v1/health >/dev/null 2>&1; then
     echo "    API healthy (internal, attempt ${i})"
     healthy=1
@@ -76,8 +84,25 @@ done
 
 if [[ "${healthy}" -ne 1 ]]; then
   echo "ERROR: API did not become healthy in time" >&2
-  "${COMPOSE[@]}" logs --tail=80 api edge || true
+  "${COMPOSE[@]}" logs --tail=80 api rag edge || true
   exit 1
+fi
+
+echo "==> Waiting for RAG healthcheck (inside container)"
+rag_healthy=0
+for i in $(seq 1 45); do
+  if API_IMAGE_TAG="${NEW_API_TAG}" WEB_IMAGE_TAG="${NEW_WEB_TAG}" RAG_IMAGE_TAG="${NEW_RAG_TAG}" \
+    "${COMPOSE[@]}" exec -T rag curl -fsS http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1; then
+    echo "    RAG healthy (internal, attempt ${i})"
+    rag_healthy=1
+    break
+  fi
+  sleep 2
+done
+
+if [[ "${rag_healthy}" -ne 1 ]]; then
+  echo "WARNING: RAG did not become healthy in time (AI features may be unavailable)" >&2
+  "${COMPOSE[@]}" logs --tail=80 rag chromadb || true
 fi
 
 if curl -fsS "https://${DOMAIN}/api/v1/health" >/dev/null 2>&1 \
@@ -93,7 +118,9 @@ docker image prune -f >/dev/null || true
 
 echo "${NEW_API_TAG}" > .last-api-tag
 echo "${NEW_WEB_TAG}" > .last-web-tag
+echo "${NEW_RAG_TAG}" > .last-rag-tag
 if [[ -n "${PREV_API_TAG}" ]]; then echo "${PREV_API_TAG}" > .prev-api-tag; fi
 if [[ -n "${PREV_WEB_TAG}" ]]; then echo "${PREV_WEB_TAG}" > .prev-web-tag; fi
+if [[ -n "${PREV_RAG_TAG}" ]]; then echo "${PREV_RAG_TAG}" > .prev-rag-tag; fi
 
-echo "==> Deploy OK: api=${NEW_API_TAG} web=${NEW_WEB_TAG}"
+echo "==> Deploy OK: api=${NEW_API_TAG} web=${NEW_WEB_TAG} rag=${NEW_RAG_TAG}"

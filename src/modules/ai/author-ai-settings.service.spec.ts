@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { AiKeyCryptoService } from './ai-key-crypto.service';
 import { AuthorAiSettingsService } from './author-ai-settings.service';
 import type { PrismaService } from '../../prisma/prisma.service';
 
@@ -64,7 +65,8 @@ describe('AuthorAiSettingsService', () => {
   beforeEach(() => {
     stored = null;
     jest.clearAllMocks();
-    service = new AuthorAiSettingsService(prisma, configService);
+    const crypto = new AiKeyCryptoService(configService);
+    service = new AuthorAiSettingsService(prisma, crypto);
   });
 
   it('encrypts and decrypts API key roundtrip', async () => {

@@ -83,6 +83,16 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL:-http://rag:8000}
+      RAG_SERVICE_API_KEY: ${RAG_SERVICE_API_KEY:-}
+      PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required}
+      RAG_CALLBACK_SECRET: ${RAG_CALLBACK_SECRET:-}
+      AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-}
+    depends_on:
+      rag:
+        condition: service_started
     networks:
       - internal
     healthcheck:
@@ -105,6 +115,50 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: researchers-chromadb
+    <<: *default-restart
+    logging: *default-logging
+    environment:
+      ANONYMIZED_TELEMETRY: "False"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v2/heartbeat || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  rag:
+    image: ghcr.io/${IMAGE_OWNER}/rag-service:${RAG_IMAGE_TAG:-latest}
+    container_name: researchers-rag
+    <<: *default-restart
+    logging: *default-logging
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    environment:
+      UVICORN_WORKERS: ${RAG_UVICORN_WORKERS:-2}
+      CHROMA_HOST: chromadb
+      CHROMA_HTTP_PORT: "8000"
+      EMBEDDING_PROVIDER: gemini
+      GEMINI_EMBEDDING_MODEL: ${GEMINI_EMBEDDING_MODEL:-gemini-embedding-2-preview}
+      GEMINI_EMBEDDING_DIMENSIONS: ${GEMINI_EMBEDDING_DIMENSIONS:-3072}
+      SERVICE_API_KEYS: ${RAG_SERVICE_API_KEY:?RAG_SERVICE_API_KEY is required}
+      RATE_LIMIT: ${RAG_RATE_LIMIT:-30/minute}
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   edge:
     image: nginx:1.27-alpine
@@ -180,6 +234,7 @@ services:
 
 volumes:
   pg_data:
+  chroma_data:
   letsencrypt:
   certbot_www:
   backups:
