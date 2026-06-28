@@ -27,6 +27,9 @@ COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
 COPY --from=build --chown=nestjs:nodejs /app/prisma ./prisma
 COPY --from=build --chown=nestjs:nodejs /app/package*.json ./
 
+# nestjs user cannot mkdir under /app (owned by root); create local upload dir at build time
+RUN mkdir -p /app/uploads && chown nestjs:nodejs /app/uploads
+
 USER nestjs
 EXPOSE 8080
 

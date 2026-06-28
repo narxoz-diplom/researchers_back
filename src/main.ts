@@ -14,9 +14,18 @@ async function bootstrap() {
 
   const uploadsDir = join(process.cwd(), 'uploads');
   if (!existsSync(uploadsDir)) {
-    mkdirSync(uploadsDir, { recursive: true });
+    try {
+      mkdirSync(uploadsDir, { recursive: true });
+    } catch (err) {
+      Logger.warn(
+        `Could not create uploads directory at ${uploadsDir}: ${err instanceof Error ? err.message : err}`,
+        'Bootstrap',
+      );
+    }
   }
-  app.useStaticAssets(uploadsDir, { prefix: '/api/v1/media/files/' });
+  if (existsSync(uploadsDir)) {
+    app.useStaticAssets(uploadsDir, { prefix: '/api/v1/media/files/' });
+  }
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

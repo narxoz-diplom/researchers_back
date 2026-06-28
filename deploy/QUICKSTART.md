@@ -715,6 +715,22 @@ docker compose --env-file .env.production -f docker-compose.prod.yml ps
 
 В compose для chromadb: `healthcheck: disable: true`, RAG — `depends_on: service_started`.
 
+### `EACCES: permission denied, mkdir '/app/uploads'` (API crash loop)
+
+Образ API запускается от пользователя `nestjs`, каталог `/app/uploads` должен
+существовать в образе (fix в Dockerfile). **Push backend и re-run Deploy API.**
+
+Временно на VPS (до нового образа):
+
+```bash
+cd ~/researchers
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm -u root api \
+  sh -c 'mkdir -p /app/uploads && chown 1001:1001 /app/uploads'
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --force-recreate api edge
+```
+
+> Это сбросится при следующем recreate без fix в образе — нужен deploy нового API.
+
 ### `502 Bad Gateway` от nginx
 API не отвечает. Смотрите:
 ```bash

@@ -92,6 +92,8 @@ services:
       PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required}
       RAG_CALLBACK_SECRET: ${RAG_CALLBACK_SECRET:-}
       AI_ENCRYPTION_KEY: ${AI_ENCRYPTION_KEY:-}
+    tmpfs:
+      - /app/uploads:uid=1001,gid=1001,mode=0750
     networks:
       - internal
     healthcheck:
