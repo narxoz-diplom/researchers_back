@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateLessonDto {
   @ApiProperty({ maxLength: 200 })
@@ -18,4 +18,9 @@ export class CreateLessonDto {
   @IsInt()
   @Min(1)
   orderNumber: number;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  isPublished?: boolean;
 }

@@ -229,7 +229,7 @@ export class LessonIndexService {
         if (taskKey.startsWith('video:')) {
           const videoId = taskKey.slice('video:'.length);
           const video = lesson.videos.find((v) => v.id === videoId);
-          if (!video) {
+          if (!video?.cloudinaryPublicId) {
             continue;
           }
           const buffer = await this.mediaService.downloadForIndexing(

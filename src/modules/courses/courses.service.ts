@@ -73,10 +73,13 @@ export class CoursesService {
     const hasAccess = user
       ? await this.resolveHasAccess(course.id, course.authorId, user)
       : false;
+    const includeUnpublished = user
+      ? user.role === Role.ADMIN || course.authorId === user.id
+      : false;
     const myEnrollment = user
       ? await this.enrollmentsService.getMyEnrollmentForCourse(course.id, user)
       : null;
-    return toCourseDetail(course, hasAccess, myEnrollment);
+    return toCourseDetail(course, hasAccess, myEnrollment, includeUnpublished);
   }
 
   async create(

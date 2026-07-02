@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { LessonVectorIndexStatus } from '@prisma/client';
+import { LessonVectorIndexStatus, VideoSource } from '@prisma/client';
 
 export class LessonSummaryResponseDto {
   @ApiProperty()
@@ -10,6 +10,9 @@ export class LessonSummaryResponseDto {
 
   @ApiProperty()
   orderNumber: number;
+
+  @ApiProperty()
+  isPublished: boolean;
 }
 
 export class LessonVideoResponseDto {
@@ -19,8 +22,14 @@ export class LessonVideoResponseDto {
   @ApiProperty()
   title: string;
 
+  @ApiProperty({ enum: VideoSource })
+  source: VideoSource;
+
   @ApiProperty()
   url: string;
+
+  @ApiPropertyOptional()
+  youtubeVideoId?: string;
 
   @ApiProperty()
   durationSeconds: number;
@@ -28,8 +37,8 @@ export class LessonVideoResponseDto {
   @ApiProperty()
   orderNumber: number;
 
-  @ApiProperty()
-  sizeBytes: string;
+  @ApiPropertyOptional()
+  sizeBytes?: string;
 }
 
 export class LessonMaterialResponseDto {
@@ -88,8 +97,8 @@ export class LessonVideoEntityDto extends LessonVideoResponseDto {
   @ApiProperty()
   lessonId: string;
 
-  @ApiProperty()
-  cloudinaryPublicId: string;
+  @ApiPropertyOptional()
+  cloudinaryPublicId?: string;
 }
 
 export class LessonMaterialEntityDto extends LessonMaterialResponseDto {

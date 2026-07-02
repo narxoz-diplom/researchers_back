@@ -63,6 +63,9 @@ export class PrismaLessonsRepository implements ILessonsRepository {
         ...(payload.orderNumber !== undefined
           ? { orderNumber: payload.orderNumber }
           : {}),
+        ...(payload.isPublished !== undefined
+          ? { isPublished: payload.isPublished }
+          : {}),
       },
       include: lessonInclude,
     });
@@ -101,7 +104,9 @@ export class PrismaLessonsRepository implements ILessonsRepository {
       return { videoIds: [], rawIds: [] };
     }
     return {
-      videoIds: lesson.videos.map((v) => v.cloudinaryPublicId),
+      videoIds: lesson.videos
+        .filter((v) => v.cloudinaryPublicId)
+        .map((v) => v.cloudinaryPublicId!),
       rawIds: lesson.materials.map((m) => m.cloudinaryPublicId),
     };
   }

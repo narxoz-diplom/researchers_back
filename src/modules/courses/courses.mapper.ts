@@ -31,15 +31,20 @@ export function toCourseDetail(
   course: CourseWithAuthorAndLessons,
   hasAccess: boolean,
   myEnrollment: MyEnrollmentDto | null,
+  includeUnpublished: boolean,
 ): CourseDetailDto {
+  const visibleLessons = includeUnpublished
+    ? course.lessons
+    : course.lessons.filter((l) => l.isPublished);
+
   return {
     ...toCourseListItem({
       ...course,
-      _count: { lessons: course.lessons.length },
+      _count: { lessons: visibleLessons.length },
     }),
     hasAccess,
     myEnrollment,
-    lessons: course.lessons.map((lesson) => toLessonSummary(lesson, hasAccess)),
+    lessons: visibleLessons.map((lesson) => toLessonSummary(lesson, hasAccess)),
   };
 }
 
@@ -51,6 +56,7 @@ function toLessonSummary(
     id: lesson.id,
     title: lesson.title,
     orderNumber: lesson.orderNumber,
+    isPublished: lesson.isPublished,
   };
 
   if (!hasAccess) {
@@ -66,6 +72,8 @@ function toLessonSummary(
       url: v.url,
       durationSeconds: v.durationSeconds,
       orderNumber: v.orderNumber,
+      source: v.source,
+      ...(v.youtubeVideoId ? { youtubeVideoId: v.youtubeVideoId } : {}),
     })),
     materials: lesson.materials.map((m) => ({
       id: m.id,

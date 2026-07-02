@@ -18,8 +18,11 @@ import {
 } from '@nestjs/swagger';
 import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
 import { SubscriptionGuard } from '../../common/guards/subscription.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { AttachMaterialDto } from './dto/attach-material.dto';
 import { AttachVideoDto } from './dto/attach-video.dto';
+import { AttachYoutubeVideoDto } from './dto/attach-youtube-video.dto';
 import {
   LessonDetailResponseDto,
   LessonMaterialEntityDto,
@@ -43,8 +46,11 @@ export class LessonsController {
   })
   @ApiResponse({ status: 200, type: LessonDetailResponseDto })
   @ApiResponse({ status: 403, description: 'SUBSCRIPTION_REQUIRED' })
-  getById(@Param('id') id: string): Promise<LessonDetailResponseDto> {
-    return this.lessonsService.getById(id);
+  getById(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayloadUser,
+  ): Promise<LessonDetailResponseDto> {
+    return this.lessonsService.getById(id, user);
   }
 
   @UseGuards(LessonOwnerGuard)
@@ -77,6 +83,18 @@ export class LessonsController {
     @Body() dto: AttachVideoDto,
   ): Promise<LessonVideoEntityDto> {
     return this.lessonsService.attachVideo(lessonId, dto);
+  }
+
+  @UseGuards(LessonOwnerGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @Post(':id/videos/youtube')
+  @ApiOperation({ summary: 'Attach YouTube video by URL' })
+  @ApiResponse({ status: 201, type: LessonVideoEntityDto })
+  attachYoutubeVideo(
+    @Param('id') lessonId: string,
+    @Body() dto: AttachYoutubeVideoDto,
+  ): Promise<LessonVideoEntityDto> {
+    return this.lessonsService.attachYoutubeVideo(lessonId, dto);
   }
 
   @UseGuards(LessonOwnerGuard)

@@ -25,6 +25,12 @@ export class LessonVideoSummaryDto {
 
   @ApiProperty()
   orderNumber: number;
+
+  @ApiProperty()
+  source: string;
+
+  @ApiPropertyOptional()
+  youtubeVideoId?: string;
 }
 
 export class LessonMaterialSummaryDto {
@@ -50,6 +56,9 @@ export class LessonSummaryDto {
 
   @ApiProperty()
   orderNumber: number;
+
+  @ApiProperty()
+  isPublished: boolean;
 
   @ApiPropertyOptional({
     description: 'Omitted when the user has no content access',

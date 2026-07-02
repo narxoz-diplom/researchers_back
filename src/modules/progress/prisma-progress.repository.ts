@@ -48,6 +48,8 @@ export class PrismaProgressRepository implements IProgressRepository {
   }
 
   countLessonsByCourse(courseId: string): Promise<number> {
-    return this.prisma.lesson.count({ where: { courseId } });
+    return this.prisma.lesson.count({
+      where: { courseId, isPublished: true },
+    });
   }
 }

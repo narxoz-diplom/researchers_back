@@ -51,6 +51,10 @@ export class SubscriptionGuard implements CanActivate {
       return true;
     }
 
+    if (!lesson.isPublished) {
+      throw new NotFoundException('Lesson not found');
+    }
+
     const hasAccess = await this.enrollmentsService.hasApprovedAccess(
       user.id,
       lesson.course.id,

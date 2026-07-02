@@ -1,16 +1,18 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, VideoSource } from '@prisma/client';
 
 export interface CreateLessonPayload {
   courseId: string;
   title: string;
   content: string;
   orderNumber: number;
+  isPublished?: boolean;
 }
 
 export interface UpdateLessonPayload {
   title?: string;
   content?: string;
   orderNumber?: number;
+  isPublished?: boolean;
 }
 
 export interface ReorderItemPayload {
@@ -21,10 +23,12 @@ export interface ReorderItemPayload {
 export interface AttachVideoPayload {
   lessonId: string;
   title: string;
-  cloudinaryPublicId: string;
+  source?: VideoSource;
+  cloudinaryPublicId?: string;
+  youtubeVideoId?: string;
   url: string;
   durationSeconds: number;
-  sizeBytes: bigint;
+  sizeBytes?: bigint;
   orderNumber: number;
 }
 

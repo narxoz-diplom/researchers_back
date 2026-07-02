@@ -5,9 +5,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CourseStatus, Prisma, Role } from '@prisma/client';
+import { CourseStatus, Prisma, Role, VideoSource } from '@prisma/client';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { ErrorCode } from '../../common/errors/error-codes';
+import { parseYoutubeUrl } from '../../common/utils/youtube-url';
 import { COURSES_REPOSITORY } from '../courses/courses.constants';
 import type { ICoursesRepository } from '../courses/courses.repository.interface';
 import { MediaService } from '../media/media.service';
@@ -21,6 +22,7 @@ import {
 import type { ILessonsRepository } from './lessons.repository.interface';
 import { AttachMaterialDto } from './dto/attach-material.dto';
 import { AttachVideoDto } from './dto/attach-video.dto';
+import { AttachYoutubeVideoDto } from './dto/attach-youtube-video.dto';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import {
   LessonDetailResponseDto,
@@ -60,14 +62,30 @@ export class LessonsService {
     this.assertCanViewCourse(course.status, course.authorId, user);
 
     const lessons = await this.lessonsRepository.findByCourseId(courseId);
-    return lessons.map(toLessonSummary);
+    const canManage = this.canManageLessons(course.authorId, user);
+    const visible = canManage
+      ? lessons
+      : lessons.filter((l) => l.isPublished);
+    return visible.map(toLessonSummary);
   }
 
-  async getById(id: string): Promise<LessonDetailResponseDto> {
+  async getById(
+    id: string,
+    user?: JwtPayloadUser,
+  ): Promise<LessonDetailResponseDto> {
     const lesson = await this.lessonsRepository.findById(id);
     if (!lesson) {
       throw new NotFoundException('Lesson not found');
     }
+
+    if (
+      user &&
+      !lesson.isPublished &&
+      !this.canManageLessons(lesson.course.authorId, user)
+    ) {
+      throw new NotFoundException('Lesson not found');
+    }
+
     return toLessonDetail(lesson);
   }
 
@@ -83,6 +101,7 @@ export class LessonsService {
         title: dto.title,
         content: dto.content ?? '',
         orderNumber: dto.orderNumber,
+        ...(dto.isPublished !== undefined ? { isPublished: dto.isPublished } : {}),
       });
       this.lessonIndexService.scheduleReindex(lesson.id);
       return toLessonDetail(lesson);
@@ -108,6 +127,7 @@ export class LessonsService {
         title: dto.title,
         content: dto.content,
         orderNumber: dto.orderNumber,
+        isPublished: dto.isPublished,
       });
       if (dto.title !== undefined || dto.content !== undefined) {
         this.lessonIndexService.scheduleReindex(id);
@@ -192,6 +212,7 @@ export class LessonsService {
     const video = await this.lessonsRepository.attachVideo({
       lessonId,
       title: dto.title,
+      source: VideoSource.CLOUDINARY,
       cloudinaryPublicId: dto.cloudinaryPublicId,
       url: dto.url,
       durationSeconds: dto.durationSeconds,
@@ -203,7 +224,42 @@ export class LessonsService {
 
     return {
       lessonId: video.lessonId,
-      cloudinaryPublicId: video.cloudinaryPublicId,
+      ...(video.cloudinaryPublicId
+        ? { cloudinaryPublicId: video.cloudinaryPublicId }
+        : {}),
+      ...toLessonVideo(video),
+    };
+  }
+
+  async attachYoutubeVideo(
+    lessonId: string,
+    dto: AttachYoutubeVideoDto,
+  ): Promise<LessonVideoEntityDto> {
+    const lesson = await this.ensureLessonExists(lessonId);
+
+    const parsed = parseYoutubeUrl(dto.youtubeUrl);
+    if (!parsed) {
+      throw new BadRequestException('Invalid YouTube URL');
+    }
+
+    const orderNumber =
+      dto.orderNumber ??
+      (lesson.videos.length > 0
+        ? Math.max(...lesson.videos.map((v) => v.orderNumber)) + 1
+        : 1);
+
+    const video = await this.lessonsRepository.attachVideo({
+      lessonId,
+      title: dto.title,
+      source: VideoSource.YOUTUBE,
+      youtubeVideoId: parsed.videoId,
+      url: parsed.watchUrl,
+      durationSeconds: 0,
+      orderNumber,
+    });
+
+    return {
+      lessonId: video.lessonId,
       ...toLessonVideo(video),
     };
   }
@@ -224,7 +280,9 @@ export class LessonsService {
 
     return {
       lessonId: video.lessonId,
-      cloudinaryPublicId: video.cloudinaryPublicId,
+      ...(video.cloudinaryPublicId
+        ? { cloudinaryPublicId: video.cloudinaryPublicId }
+        : {}),
       ...toLessonVideo(video),
     };
   }
@@ -235,10 +293,12 @@ export class LessonsService {
       throw new NotFoundException('Video not found');
     }
 
-    await this.mediaService.deleteByPublicIds(
-      [video.cloudinaryPublicId],
-      UploadResourceType.VIDEO,
-    );
+    if (video.source === VideoSource.CLOUDINARY && video.cloudinaryPublicId) {
+      await this.mediaService.deleteByPublicIds(
+        [video.cloudinaryPublicId],
+        UploadResourceType.VIDEO,
+      );
+    }
     const lesson = await this.lessonsRepository.findById(video.lessonId);
     if (lesson) {
       this.lessonIndexService.scheduleCleanupMedia(
@@ -334,6 +394,10 @@ export class LessonsService {
       throw new NotFoundException('Lesson not found');
     }
     return lesson;
+  }
+
+  private canManageLessons(authorId: string, user: JwtPayloadUser): boolean {
+    return user.role === Role.ADMIN || authorId === user.id;
   }
 
   private assertCanViewCourse(

@@ -14,6 +14,7 @@ export function toLessonSummary(
     id: lesson.id,
     title: lesson.title,
     orderNumber: lesson.orderNumber,
+    isPublished: lesson.isPublished,
   };
 }
 
@@ -41,10 +42,12 @@ export function toLessonVideo(video: LessonVideo): LessonVideoResponseDto {
   return {
     id: video.id,
     title: video.title,
+    source: video.source,
     url: video.url,
+    ...(video.youtubeVideoId ? { youtubeVideoId: video.youtubeVideoId } : {}),
     durationSeconds: video.durationSeconds,
     orderNumber: video.orderNumber,
-    sizeBytes: video.sizeBytes.toString(),
+    ...(video.sizeBytes != null ? { sizeBytes: video.sizeBytes.toString() } : {}),
   };
 }
 

@@ -13,6 +13,11 @@ enum Role {
   SUBSCRIBER
 }
 
+enum VideoSource {
+  CLOUDINARY
+  YOUTUBE
+}
+
 enum CourseStatus {
   DRAFT
   PUBLISHED
@@ -202,6 +207,7 @@ model Lesson {
   title             String
   content           String                  @db.Text
   orderNumber       Int
+  isPublished       Boolean                 @default(false)
   vectorIndexStatus LessonVectorIndexStatus @default(PENDING)
   vectorIndexJobId  String?
   vectorIndexedAt   DateTime?
@@ -285,15 +291,17 @@ model LessonVectorIndexError {
 }
 
 model LessonVideo {
-  id                 String   @id @default(cuid())
+  id                 String      @id @default(cuid())
   lessonId           String
   title              String
-  cloudinaryPublicId String   @unique
+  source             VideoSource @default(CLOUDINARY)
+  cloudinaryPublicId String?     @unique
+  youtubeVideoId     String?
   url                String
-  durationSeconds    Int
-  sizeBytes          BigInt
-  orderNumber        Int      @default(1)
-  createdAt          DateTime @default(now())
+  durationSeconds    Int         @default(0)
+  sizeBytes          BigInt?
+  orderNumber        Int         @default(1)
+  createdAt          DateTime    @default(now())
 
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 }

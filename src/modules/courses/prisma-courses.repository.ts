@@ -166,7 +166,9 @@ export class PrismaCoursesRepository implements ICoursesRepository {
     }
 
     const videoIds = course.lessons.flatMap((l) =>
-      l.videos.map((v) => v.cloudinaryPublicId),
+      l.videos
+        .filter((v) => v.cloudinaryPublicId)
+        .map((v) => v.cloudinaryPublicId!),
     );
     const rawIds = course.lessons.flatMap((l) =>
       l.materials.map((m) => m.cloudinaryPublicId),
