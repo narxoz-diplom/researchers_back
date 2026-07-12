@@ -22,6 +22,13 @@ export interface UpdateProfileInput {
   avatarUrl?: string;
 }
 
+export interface AdminUpdateUserInput {
+  fullName?: string;
+  avatarUrl?: string;
+  email?: string;
+  emailVerified?: boolean;
+}
+
 @Injectable()
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -59,6 +66,20 @@ export class UsersRepository {
       data: {
         ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
         ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl } : {}),
+      },
+    });
+  }
+
+  updateByAdmin(id: string, data: AdminUpdateUserInput): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        ...(data.fullName !== undefined ? { fullName: data.fullName } : {}),
+        ...(data.avatarUrl !== undefined ? { avatarUrl: data.avatarUrl } : {}),
+        ...(data.email !== undefined ? { email: data.email } : {}),
+        ...(data.emailVerified !== undefined
+          ? { emailVerified: data.emailVerified }
+          : {}),
       },
     });
   }

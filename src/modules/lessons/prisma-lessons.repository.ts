@@ -175,7 +175,9 @@ export class PrismaLessonsRepository implements ILessonsRepository {
       where: { id },
       include: {
         lesson: {
-          include: { course: { select: { id: true, authorId: true } } },
+          include: {
+            course: { select: { id: true, authorId: true, status: true } },
+          },
         },
       },
     });

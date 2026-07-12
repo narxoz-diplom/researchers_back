@@ -24,6 +24,8 @@ import {
   MyEnrollmentDto,
 } from './dto/enrollment-response.dto';
 import { RequestEnrollmentDto } from './dto/request-enrollment.dto';
+import { SubmitPaymentDto } from './dto/submit-payment.dto';
+import { RequestMorePaymentDto } from './dto/request-more-payment.dto';
 import { EnrollmentsService } from './enrollments.service';
 
 @ApiTags('enrollments')
@@ -48,13 +50,14 @@ export class CourseEnrollmentsController {
   @Roles(Role.SUBSCRIBER)
   @HttpCode(HttpStatus.OK)
   @Post('purchase')
-  @ApiOperation({ summary: 'Mark course as purchased (demo payment)' })
+  @ApiOperation({ summary: 'Submit Kaspi QR payment for review' })
   @ApiResponse({ status: 200, type: MyEnrollmentDto })
   purchase(
     @Param('courseId') courseId: string,
     @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: SubmitPaymentDto,
   ): Promise<MyEnrollmentDto> {
-    return this.enrollmentsService.purchase(courseId, user);
+    return this.enrollmentsService.purchase(courseId, user, dto);
   }
 
   @Roles(Role.AUTHOR, Role.ADMIN)
@@ -81,6 +84,26 @@ export class CourseEnrollmentsController {
     @CurrentUser() user: JwtPayloadUser,
   ): Promise<CourseEnrollmentDto> {
     return this.enrollmentsService.approve(courseId, enrollmentId, user);
+  }
+
+  @Roles(Role.AUTHOR, Role.ADMIN)
+  @UseGuards(CourseOwnerGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post(':enrollmentId/request-more')
+  @ApiOperation({ summary: 'Request additional payment from subscriber' })
+  @ApiResponse({ status: 200, type: CourseEnrollmentDto })
+  requestMore(
+    @Param('courseId') courseId: string,
+    @Param('enrollmentId') enrollmentId: string,
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: RequestMorePaymentDto,
+  ): Promise<CourseEnrollmentDto> {
+    return this.enrollmentsService.requestMorePayment(
+      courseId,
+      enrollmentId,
+      user,
+      dto,
+    );
   }
 
   @Roles(Role.AUTHOR, Role.ADMIN)

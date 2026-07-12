@@ -105,6 +105,32 @@ describe('Users (e2e)', () => {
       .expect(200);
   });
 
+  it('admin can update user profile', async () => {
+    const res = await request(app.getHttpServer())
+      .patch(`/api/v1/users/${userId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ fullName: 'Admin Updated' })
+      .expect(200);
+
+    expect((res.body as { fullName: string }).fullName).toBe('Admin Updated');
+  });
+
+  it('admin can reset user password', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/users/${userId}/password`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ newPassword: 'NewAdminPass1' })
+      .expect(204);
+  });
+
+  it('non-admin cannot update another user', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/v1/users/${userId}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ fullName: 'Hacked' })
+      .expect(403);
+  });
+
   it('cannot downgrade the last admin', async () => {
     const admins = await request(app.getHttpServer())
       .get('/api/v1/users?role=ADMIN')

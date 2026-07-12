@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, CourseStatus } from '@prisma/client';
 import { Request } from 'express';
 import { LESSONS_REPOSITORY } from '../../modules/lessons/lessons.constants';
 import type { ILessonsRepository } from '../../modules/lessons/lessons.repository.interface';
@@ -28,14 +28,6 @@ export class MaterialAccessGuard implements CanActivate {
       .getRequest<Request & { user?: JwtPayloadUser }>();
     const user = request.user;
 
-    if (!user) {
-      throw new ForbiddenException();
-    }
-
-    if (user.role === Role.ADMIN) {
-      return true;
-    }
-
     const rawId = request.params.id;
     const materialId = Array.isArray(rawId) ? rawId[0] : rawId;
     if (!materialId) {
@@ -45,6 +37,21 @@ export class MaterialAccessGuard implements CanActivate {
     const material = await this.lessonsRepository.findMaterialById(materialId);
     if (!material) {
       throw new NotFoundException('Material not found');
+    }
+
+    if (
+      material.lesson.isPublished &&
+      material.lesson.course.status === CourseStatus.PUBLISHED
+    ) {
+      return true;
+    }
+
+    if (!user) {
+      throw new ForbiddenException();
+    }
+
+    if (user.role === Role.ADMIN) {
+      return true;
     }
 
     if (material.lesson.course.authorId === user.id) {

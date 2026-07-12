@@ -53,7 +53,7 @@ export class LessonsService {
 
   async listByCourse(
     courseId: string,
-    user: JwtPayloadUser,
+    user: JwtPayloadUser | null,
   ): Promise<LessonSummaryResponseDto[]> {
     const course = await this.coursesRepository.findById(courseId);
     if (!course) {
@@ -62,10 +62,10 @@ export class LessonsService {
     this.assertCanViewCourse(course.status, course.authorId, user);
 
     const lessons = await this.lessonsRepository.findByCourseId(courseId);
-    const canManage = this.canManageLessons(course.authorId, user);
-    const visible = canManage
-      ? lessons
-      : lessons.filter((l) => l.isPublished);
+    const canManage = user
+      ? this.canManageLessons(course.authorId, user)
+      : false;
+    const visible = canManage ? lessons : lessons.filter((l) => l.isPublished);
     return visible.map(toLessonSummary);
   }
 
@@ -79,9 +79,8 @@ export class LessonsService {
     }
 
     if (
-      user &&
       !lesson.isPublished &&
-      !this.canManageLessons(lesson.course.authorId, user)
+      (!user || !this.canManageLessons(lesson.course.authorId, user))
     ) {
       throw new NotFoundException('Lesson not found');
     }
@@ -101,7 +100,9 @@ export class LessonsService {
         title: dto.title,
         content: dto.content ?? '',
         orderNumber: dto.orderNumber,
-        ...(dto.isPublished !== undefined ? { isPublished: dto.isPublished } : {}),
+        ...(dto.isPublished !== undefined
+          ? { isPublished: dto.isPublished }
+          : {}),
       });
       this.lessonIndexService.scheduleReindex(lesson.id);
       return toLessonDetail(lesson);
@@ -403,9 +404,9 @@ export class LessonsService {
   private assertCanViewCourse(
     status: CourseStatus,
     authorId: string,
-    user: JwtPayloadUser,
+    user: JwtPayloadUser | null,
   ): void {
-    if (user.role === Role.ADMIN || authorId === user.id) {
+    if (user && (user.role === Role.ADMIN || authorId === user.id)) {
       return;
     }
     if (status !== CourseStatus.PUBLISHED) {

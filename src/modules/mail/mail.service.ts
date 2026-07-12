@@ -17,6 +17,12 @@ export interface LessonIndexFailedEmailPayload {
   errorId: string;
 }
 
+export interface PasswordResetByAdminEmailPayload {
+  to: string;
+  fullName: string;
+  newPassword: string;
+}
+
 @Injectable()
 export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
@@ -80,6 +86,49 @@ export class MailService implements OnModuleInit {
     if (!this.transporter) {
       this.logger.warn(
         `Verification link for ${payload.to}: ${payload.verifyUrl}`,
+      );
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.fromAddress,
+      to: payload.to,
+      subject,
+      text,
+      html,
+    });
+  }
+
+  async sendPasswordResetByAdminEmail(
+    payload: PasswordResetByAdminEmailPayload,
+  ): Promise<void> {
+    const subject = 'Новый пароль — Researchers.kz';
+    const text = [
+      `Здравствуйте, ${payload.fullName}!`,
+      '',
+      'Администратор платформы Researchers.kz установил для вашего аккаунта новый пароль:',
+      payload.newPassword,
+      '',
+      'Рекомендуем войти и сменить пароль в профиле после первого входа.',
+      'Если вы не ожидали это письмо — свяжитесь с поддержкой.',
+    ].join('\n');
+
+    const html = `
+      <div style="font-family:Inter,Arial,sans-serif;line-height:1.6;color:#111827;max-width:560px">
+        <h2 style="margin:0 0 12px">Researchers.kz</h2>
+        <p>Здравствуйте, <strong>${this.escapeHtml(payload.fullName)}</strong>!</p>
+        <p>Администратор платформы установил для вашего аккаунта новый пароль:</p>
+        <p style="font-size:18px;font-weight:700;letter-spacing:0.04em;background:#f3f4f6;padding:12px 16px;border-radius:8px;display:inline-block">
+          ${this.escapeHtml(payload.newPassword)}
+        </p>
+        <p>Рекомендуем войти и сменить пароль в профиле после первого входа.</p>
+        <p style="font-size:13px;color:#6b7280">Если вы не ожидали это письмо — свяжитесь с поддержкой.</p>
+      </div>
+    `;
+
+    if (!this.transporter) {
+      this.logger.warn(
+        `Password reset for ${payload.to}: newPassword=${payload.newPassword}`,
       );
       return;
     }

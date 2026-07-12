@@ -12,6 +12,20 @@ export type EnrollmentWithCourse = CourseEnrollment & {
   course: { id: string; title: string; authorId: string };
 };
 
+export type EnrollmentWithUserAndCourse = CourseEnrollment & {
+  user: { id: string; email: string; fullName: string };
+  course: { id: string; title: string; priceCents: number };
+};
+
+export type EnrollmentWithCourseSummary = CourseEnrollment & {
+  course: {
+    id: string;
+    title: string;
+    coverUrl: string | null;
+    priceCents: number;
+  };
+};
+
 export interface IEnrollmentsRepository {
   findByCourseAndUser(
     courseId: string,
@@ -35,4 +49,8 @@ export interface IEnrollmentsRepository {
     courseId: string,
     status?: CourseEnrollmentStatus,
   ): Promise<EnrollmentWithUser[]>;
+
+  listPendingPayments(): Promise<EnrollmentWithUserAndCourse[]>;
+
+  listByUser(userId: string): Promise<EnrollmentWithCourseSummary[]>;
 }

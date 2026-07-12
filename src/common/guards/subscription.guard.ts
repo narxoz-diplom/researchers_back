@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, CourseStatus } from '@prisma/client';
 import { Request } from 'express';
 import { LESSONS_REPOSITORY } from '../../modules/lessons/lessons.constants';
 import type { ILessonsRepository } from '../../modules/lessons/lessons.repository.interface';
@@ -28,14 +28,6 @@ export class SubscriptionGuard implements CanActivate {
       .getRequest<Request & { user?: JwtPayloadUser }>();
     const user = request.user;
 
-    if (!user) {
-      throw new ForbiddenException();
-    }
-
-    if (user.role === Role.ADMIN) {
-      return true;
-    }
-
     const rawId = request.params.id ?? request.params.lessonId;
     const lessonId = Array.isArray(rawId) ? rawId[0] : rawId;
     if (!lessonId) {
@@ -45,6 +37,18 @@ export class SubscriptionGuard implements CanActivate {
     const lesson = await this.lessonsRepository.findByIdWithCourse(lessonId);
     if (!lesson) {
       throw new NotFoundException('Lesson not found');
+    }
+
+    if (lesson.isPublished && lesson.course.status === CourseStatus.PUBLISHED) {
+      return true;
+    }
+
+    if (!user) {
+      throw new ForbiddenException();
+    }
+
+    if (user.role === Role.ADMIN) {
+      return true;
     }
 
     if (lesson.course.authorId === user.id) {

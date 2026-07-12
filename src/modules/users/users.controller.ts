@@ -23,6 +23,8 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
+import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
 import { PagedUsersDto, UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
@@ -82,6 +84,33 @@ export class UsersController {
   @ApiResponse({ status: 200, type: UserResponseDto })
   getById(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.getById(id);
+  }
+
+  @Roles(Role.ADMIN)
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update user profile (admin)' })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  updateUser(
+    @Param('id') id: string,
+    @Body() dto: AdminUpdateUserDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.updateUserByAdmin(id, dto);
+  }
+
+  @Roles(Role.ADMIN)
+  @Patch(':id/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Reset user password (admin)',
+    description:
+      'Sets a new password and sends an email notification to the user.',
+  })
+  @ApiResponse({ status: 204 })
+  resetPassword(
+    @Param('id') id: string,
+    @Body() dto: AdminResetPasswordDto,
+  ): Promise<void> {
+    return this.usersService.resetPasswordByAdmin(id, dto);
   }
 
   @Roles(Role.ADMIN)

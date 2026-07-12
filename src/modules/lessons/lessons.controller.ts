@@ -18,8 +18,10 @@ import {
 } from '@nestjs/swagger';
 import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
 import { SubscriptionGuard } from '../../common/guards/subscription.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
+import { OptionalUser } from '../../common/decorators/optional-user.decorator';
 import { AttachMaterialDto } from './dto/attach-material.dto';
 import { AttachVideoDto } from './dto/attach-video.dto';
 import { AttachYoutubeVideoDto } from './dto/attach-youtube-video.dto';
@@ -37,20 +39,21 @@ import { LessonsService } from './lessons.service';
 export class LessonsController {
   constructor(private readonly lessonsService: LessonsService) {}
 
-  @UseGuards(SubscriptionGuard)
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard, SubscriptionGuard)
   @Get(':id')
   @ApiOperation({
     summary: 'Lesson details with content and media',
     description:
-      'Requires active subscription for subscribers (403 SUBSCRIPTION_REQUIRED). Course author and ADMIN always have access.',
+      'Public when lesson is marked available for everyone (isPublished). Otherwise requires approved enrollment.',
   })
   @ApiResponse({ status: 200, type: LessonDetailResponseDto })
   @ApiResponse({ status: 403, description: 'SUBSCRIPTION_REQUIRED' })
   getById(
     @Param('id') id: string,
-    @CurrentUser() user: JwtPayloadUser,
+    @OptionalUser() user: JwtPayloadUser | null,
   ): Promise<LessonDetailResponseDto> {
-    return this.lessonsService.getById(id, user);
+    return this.lessonsService.getById(id, user ?? undefined);
   }
 
   @UseGuards(LessonOwnerGuard)

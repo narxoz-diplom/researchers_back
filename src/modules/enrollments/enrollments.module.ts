@@ -5,12 +5,18 @@ import { PrismaCoursesRepository } from '../courses/prisma-courses.repository';
 import { TelegramModule } from '../telegram/telegram.module';
 import { ENROLLMENTS_REPOSITORY } from './enrollments.constants';
 import { CourseEnrollmentsController } from './course-enrollments.controller';
+import { AdminEnrollmentsController } from './admin-enrollments.controller';
+import { MeEnrollmentsController } from './me-enrollments.controller';
 import { EnrollmentsService } from './enrollments.service';
 import { PrismaEnrollmentsRepository } from './prisma-enrollments.repository';
 
 @Module({
   imports: [TelegramModule],
-  controllers: [CourseEnrollmentsController],
+  controllers: [
+    CourseEnrollmentsController,
+    AdminEnrollmentsController,
+    MeEnrollmentsController,
+  ],
   providers: [
     EnrollmentsService,
     CourseOwnerGuard,

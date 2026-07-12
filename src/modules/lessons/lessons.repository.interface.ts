@@ -72,7 +72,9 @@ export type VideoWithLesson = Prisma.LessonVideoGetPayload<{
 export type MaterialWithLesson = Prisma.LessonMaterialGetPayload<{
   include: {
     lesson: {
-      include: { course: { select: { id: true; authorId: true } } };
+      include: {
+        course: { select: { id: true; authorId: true; status: true } };
+      };
     };
   };
 }>;

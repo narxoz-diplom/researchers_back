@@ -13,7 +13,10 @@ import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { PagedUsersDto } from './dto/user-response.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
+import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
 import { MediaService } from '../media/media.service';
+import { MailService } from '../mail/mail.service';
 import { toUserResponse } from './user.mapper';
 import { UsersRepository } from './users.repository';
 
@@ -24,6 +27,7 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly mediaService: MediaService,
+    private readonly mailService: MailService,
   ) {}
 
   async getMe(userId: string): Promise<UserResponseDto> {
@@ -87,6 +91,62 @@ export class UsersService {
   async getById(id: string): Promise<UserResponseDto> {
     const user = await this.findUserOrThrow(id);
     return toUserResponse(user);
+  }
+
+  async updateUserByAdmin(
+    id: string,
+    dto: AdminUpdateUserDto,
+  ): Promise<UserResponseDto> {
+    if (
+      dto.fullName === undefined &&
+      dto.avatarUrl === undefined &&
+      dto.email === undefined
+    ) {
+      return this.getById(id);
+    }
+
+    const existing = await this.findUserOrThrow(id);
+
+    if (dto.email && dto.email !== existing.email) {
+      const taken = await this.usersRepository.findByEmail(dto.email);
+      if (taken && taken.id !== id) {
+        throw new ConflictException(ErrorCode.EMAIL_TAKEN);
+      }
+    }
+
+    if (
+      dto.avatarUrl &&
+      existing.avatarUrl &&
+      existing.avatarUrl !== dto.avatarUrl
+    ) {
+      await this.mediaService.deleteAvatarByUrl(existing.avatarUrl);
+    }
+
+    const emailChanged =
+      dto.email !== undefined && dto.email !== existing.email;
+
+    const user = await this.usersRepository.updateByAdmin(id, {
+      fullName: dto.fullName,
+      avatarUrl: dto.avatarUrl,
+      email: dto.email,
+      ...(emailChanged ? { emailVerified: false } : {}),
+    });
+    return toUserResponse(user);
+  }
+
+  async resetPasswordByAdmin(
+    id: string,
+    dto: AdminResetPasswordDto,
+  ): Promise<void> {
+    const user = await this.findUserOrThrow(id);
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+    await this.usersRepository.updatePassword(id, passwordHash);
+
+    await this.mailService.sendPasswordResetByAdminEmail({
+      to: user.email,
+      fullName: user.fullName,
+      newPassword: dto.newPassword,
+    });
   }
 
   async changeRole(id: string, dto: ChangeRoleDto): Promise<UserResponseDto> {

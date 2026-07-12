@@ -31,6 +31,21 @@ export class CourseEnrollmentDto {
   @ApiPropertyOptional()
   paidAt?: string;
 
+  @ApiPropertyOptional({
+    description: 'Total amount client reported via Kaspi, in tiyn',
+  })
+  paidAmountCents?: number;
+
+  @ApiPropertyOptional({
+    description: 'Expected course price at checkout, in tiyn',
+  })
+  expectedAmountCents?: number;
+
+  @ApiPropertyOptional({
+    description: 'Admin note when payment is insufficient',
+  })
+  adminPaymentNote?: string;
+
   @ApiPropertyOptional()
   approvedAt?: string;
 
@@ -39,6 +54,11 @@ export class CourseEnrollmentDto {
 
   @ApiPropertyOptional({ type: EnrollmentUserDto })
   user?: EnrollmentUserDto;
+}
+
+export class PaymentEnrollmentDto extends CourseEnrollmentDto {
+  @ApiProperty()
+  course: { id: string; title: string; priceCents: number };
 }
 
 export class MyEnrollmentDto {
@@ -54,6 +74,29 @@ export class MyEnrollmentDto {
   @ApiPropertyOptional()
   paidAt?: string;
 
+  @ApiPropertyOptional({
+    description: 'Total amount client reported via Kaspi, in tiyn',
+  })
+  paidAmountCents?: number;
+
+  @ApiPropertyOptional({
+    description: 'Expected course price at checkout, in tiyn',
+  })
+  expectedAmountCents?: number;
+
+  @ApiPropertyOptional({
+    description: 'Admin note when payment is insufficient',
+  })
+  adminPaymentNote?: string;
+
   @ApiPropertyOptional()
   approvedAt?: string;
+
+  @ApiProperty()
+  createdAt: string;
+}
+
+export class MyEnrollmentWithCourseDto extends MyEnrollmentDto {
+  @ApiProperty()
+  course: { id: string; title: string; coverUrl?: string; priceCents: number };
 }

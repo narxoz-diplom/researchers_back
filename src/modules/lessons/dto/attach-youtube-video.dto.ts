@@ -7,7 +7,9 @@ export class AttachYoutubeVideoDto {
   @IsString()
   title: string;
 
-  @ApiProperty({ description: 'YouTube video URL (watch, embed, shorts, youtu.be)' })
+  @ApiProperty({
+    description: 'YouTube video URL (watch, embed, shorts, youtu.be)',
+  })
   @IsUrl({ require_tld: false })
   youtubeUrl: string;
 

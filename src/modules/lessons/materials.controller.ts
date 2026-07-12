@@ -17,6 +17,8 @@ import {
 } from '@nestjs/swagger';
 import { MaterialAccessGuard } from '../../common/guards/material-access.guard';
 import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
+import { Public } from '../../common/decorators/public.decorator';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { LessonsService } from './lessons.service';
 
 function contentDispositionAttachment(filename: string): string {
@@ -32,12 +34,13 @@ function contentDispositionAttachment(filename: string): string {
 export class MaterialsController {
   constructor(private readonly lessonsService: LessonsService) {}
 
-  @UseGuards(MaterialAccessGuard)
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard, MaterialAccessGuard)
   @Get(':id/download')
   @ApiOperation({
     summary: 'Download lesson material file',
     description:
-      'Streams the file with Content-Disposition attachment. Requires lesson access (subscription or course author).',
+      'Streams the file with Content-Disposition attachment. Public for lessons available to everyone.',
   })
   @ApiProduces('application/octet-stream')
   @ApiResponse({ status: 200, description: 'File bytes' })

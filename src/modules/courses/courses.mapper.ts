@@ -59,7 +59,7 @@ function toLessonSummary(
     isPublished: lesson.isPublished,
   };
 
-  if (!hasAccess) {
+  if (!hasAccess && !lesson.isPublished) {
     return base;
   }
 

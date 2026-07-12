@@ -8,6 +8,8 @@ export interface EnrollmentTelegramPayload {
   courseTitle: string;
   submittedAt: Date;
   event: EnrollmentTelegramEvent;
+  paidAmountCents?: number;
+  expectedAmountCents?: number;
 }
 
 @Injectable()
@@ -42,12 +44,22 @@ export class TelegramService implements OnModuleInit {
     const title = this.titleForEvent(payload.event);
     const when = this.formatDate(payload.submittedAt);
 
+    const amountLine =
+      payload.paidAmountCents != null
+        ? `💰 <b>Сумма:</b> ${this.escapeHtml(this.formatKzt(payload.paidAmountCents))}${
+            payload.expectedAmountCents != null
+              ? ` / ${this.escapeHtml(this.formatKzt(payload.expectedAmountCents))}`
+              : ''
+          }`
+        : null;
+
     const text = [
       `📩 <b>${this.escapeHtml(title)}</b>`,
       '',
       `👤 <b>Email:</b> ${this.escapeHtml(payload.email)}`,
       `📚 <b>Курс:</b> ${this.escapeHtml(payload.courseTitle)}`,
       `🕐 <b>Дата:</b> ${this.escapeHtml(when)}`,
+      ...(amountLine ? ['', amountLine] : []),
     ].join('\n');
 
     await this.sendMessage(
@@ -59,7 +71,7 @@ export class TelegramService implements OnModuleInit {
   private titleForEvent(event: EnrollmentTelegramEvent): string {
     switch (event) {
       case 'purchase':
-        return 'Оплата курса (демо)';
+        return 'Оплата Kaspi QR — проверьте';
       case 'resubmit':
         return 'Повторная заявка на курс';
       default:
@@ -123,6 +135,10 @@ export class TelegramService implements OnModuleInit {
     }
 
     this.logger.log('Telegram notification sent');
+  }
+
+  private formatKzt(cents: number): string {
+    return `${(cents / 100).toLocaleString('ru-RU')} ₸`;
   }
 
   private formatDate(date: Date): string {

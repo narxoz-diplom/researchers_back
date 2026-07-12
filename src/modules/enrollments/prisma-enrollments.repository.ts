@@ -55,4 +55,27 @@ export class PrismaEnrollmentsRepository implements IEnrollmentsRepository {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  listPendingPayments() {
+    return this.prisma.courseEnrollment.findMany({
+      where: { status: CourseEnrollmentStatus.PAID },
+      include: {
+        user: { select: { id: true, email: true, fullName: true } },
+        course: { select: { id: true, title: true, priceCents: true } },
+      },
+      orderBy: { paidAt: 'desc' },
+    });
+  }
+
+  listByUser(userId: string) {
+    return this.prisma.courseEnrollment.findMany({
+      where: { userId },
+      include: {
+        course: {
+          select: { id: true, title: true, coverUrl: true, priceCents: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
 }

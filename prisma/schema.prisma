@@ -38,6 +38,7 @@ enum SubscriptionPlan {
 enum CourseEnrollmentStatus {
   PENDING
   PAID
+  UNDERPAID
   APPROVED
   REJECTED
 }
@@ -185,10 +186,13 @@ model CourseEnrollment {
   id           String                 @id @default(cuid())
   courseId     String
   userId       String
-  status       CourseEnrollmentStatus @default(PENDING)
-  message      String?
-  paidAt       DateTime?
-  approvedAt   DateTime?
+  status              CourseEnrollmentStatus @default(PENDING)
+  message             String?
+  paidAt              DateTime?
+  paidAmountCents     Int?
+  expectedAmountCents Int?
+  adminPaymentNote    String?
+  approvedAt          DateTime?
   approvedById String?
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt

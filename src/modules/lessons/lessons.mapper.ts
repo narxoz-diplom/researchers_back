@@ -47,7 +47,9 @@ export function toLessonVideo(video: LessonVideo): LessonVideoResponseDto {
     ...(video.youtubeVideoId ? { youtubeVideoId: video.youtubeVideoId } : {}),
     durationSeconds: video.durationSeconds,
     orderNumber: video.orderNumber,
-    ...(video.sizeBytes != null ? { sizeBytes: video.sizeBytes.toString() } : {}),
+    ...(video.sizeBytes != null
+      ? { sizeBytes: video.sizeBytes.toString() }
+      : {}),
   };
 }
 

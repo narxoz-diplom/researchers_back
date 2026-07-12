@@ -17,8 +17,10 @@ import {
 } from '@nestjs/swagger';
 import { CourseOwnerGuard } from '../../common/guards/course-owner.guard';
 import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
+import { OptionalUser } from '../../common/decorators/optional-user.decorator';
 import { CreateLessonDto } from './dto/create-lesson.dto';
 import {
   LessonDetailResponseDto,
@@ -33,16 +35,18 @@ import { LessonsService } from './lessons.service';
 export class CourseLessonsController {
   constructor(private readonly lessonsService: LessonsService) {}
 
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @Get()
   @ApiOperation({
     summary: 'List lessons (titles and order only)',
     description:
-      'Lesson content requires an active subscription (see GET /lessons/:id).',
+      'Published lessons are visible without login. Full content via GET /lessons/:id.',
   })
   @ApiResponse({ status: 200, type: [LessonSummaryResponseDto] })
   list(
     @Param('courseId') courseId: string,
-    @CurrentUser() user: JwtPayloadUser,
+    @OptionalUser() user: JwtPayloadUser | null,
   ): Promise<LessonSummaryResponseDto[]> {
     return this.lessonsService.listByCourse(courseId, user);
   }
