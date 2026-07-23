@@ -56,6 +56,8 @@ services:
   api:
     image: ghcr.io/${IMAGE_OWNER}/researchers-api:${API_IMAGE_TAG:-latest}
     container_name: researchers-api
+    # Matches nest build output (tsconfig.build rootDir=./src → dist/main.js)
+    command: ["node", "dist/main.js"]
     <<: *default-restart
     logging: *default-logging
     depends_on:
