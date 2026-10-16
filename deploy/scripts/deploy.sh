@@ -124,6 +124,38 @@ if [[ "${chroma_ok}" -ne 1 ]]; then
   exit 1
 fi
 
+# Landing subdomain certificate: issued once DNS for it points at this host.
+# The running edge answers the ACME challenge from its default port-80 server;
+# the recreate below then enables the landing server block. Never fatal.
+ensure_landing_cert() {
+  local landing="${LANDING_DOMAIN:-data-analysis.${DOMAIN}}"
+  local run_certbot=("${COMPOSE[@]}" run --rm --no-deps --entrypoint "" certbot)
+
+  if "${run_certbot[@]}" test -f "/etc/letsencrypt/live/${landing}/fullchain.pem" >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ -z "${ACME_EMAIL:-}" ]]; then
+    echo "    WARN: ACME_EMAIL not set, skipping certificate for ${landing}" >&2
+    return 0
+  fi
+
+  local main_ip landing_ip
+  main_ip="$(getent ahostsv4 "${DOMAIN}" 2>/dev/null | awk 'NR==1{print $1}')"
+  landing_ip="$(getent ahostsv4 "${landing}" 2>/dev/null | awk 'NR==1{print $1}')"
+  if [[ -z "${landing_ip}" || "${landing_ip}" != "${main_ip}" ]]; then
+    echo "    Landing ${landing}: DNS not pointing here yet (${landing_ip:-no record}), skipping certificate"
+    return 0
+  fi
+
+  echo "==> Issuing certificate for ${landing}"
+  if ! "${run_certbot[@]}" certbot certonly --webroot -w /var/www/certbot \
+      --non-interactive --agree-tos --no-eff-email \
+      --email "${ACME_EMAIL}" -d "${landing}"; then
+    echo "    WARN: certificate for ${landing} was not issued; landing stays disabled" >&2
+  fi
+}
+ensure_landing_cert || true
+
 # Edge renders nginx from host-mounted templates at container start; recreate so
 # deploy/nginx changes (e.g. proxy keepalive) apply without a manual step.
 API_IMAGE_TAG="${NEW_API_TAG}" \

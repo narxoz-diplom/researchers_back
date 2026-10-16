@@ -1,0 +1,47 @@
+# Data-analysis services landing on its own subdomain.
+# Rendered by the edge entrypoint ONLY when a certificate for ${LANDING_DOMAIN}
+# exists (issued by deploy.sh once DNS points here), so a missing cert can
+# never stop nginx. The page itself is static, served by the web container
+# from /data-analysis/ (researchers_front/public/data-analysis).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${LANDING_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://${LANDING_DOMAIN}$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${LANDING_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${LANDING_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${LANDING_DOMAIN}/privkey.pem;
+    include /etc/nginx/snippets/ssl-params.conf;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    location /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    location = / {
+        rewrite ^ /data-analysis/ break;
+        include /etc/nginx/snippets/proxy-params.conf;
+        proxy_pass http://web_upstream;
+    }
+
+    # The landing is a single self-contained page.
+    location / {
+        return 301 https://${LANDING_DOMAIN}/;
+    }
+}
