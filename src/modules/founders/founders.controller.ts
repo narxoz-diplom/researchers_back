@@ -45,6 +45,14 @@ export class FoundersController {
     return this.foundersService.listAll();
   }
 
+  @Public()
+  @Get(':id')
+  @ApiOperation({ summary: 'Published founder for the personal page' })
+  @ApiResponse({ status: 200, type: FounderDto })
+  getPublished(@Param('id') id: string): Promise<FounderDto> {
+    return this.foundersService.getPublished(id);
+  }
+
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)

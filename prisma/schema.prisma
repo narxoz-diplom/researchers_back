@@ -146,6 +146,8 @@ model Founder {
   videoUrl    String?
   previewUrl  String?
   profileUrl  String?
+  bio         String?  @db.Text
+  gallery     String[] @default([])
   orderNumber Int      @default(0)
   isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())

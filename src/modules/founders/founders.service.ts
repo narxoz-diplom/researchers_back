@@ -18,6 +18,16 @@ export class FoundersService {
       .then((rows) => rows.map(toFounderDto));
   }
 
+  async getPublished(id: string): Promise<FounderDto> {
+    const founder = await this.prisma.founder.findFirst({
+      where: { id, isPublished: true },
+    });
+    if (!founder) {
+      throw new NotFoundException('Founder not found');
+    }
+    return toFounderDto(founder);
+  }
+
   listAll(): Promise<FounderDto[]> {
     return this.prisma.founder
       .findMany({
@@ -35,6 +45,8 @@ export class FoundersService {
         videoUrl: dto.videoUrl || null,
         previewUrl: dto.previewUrl ?? null,
         profileUrl: dto.profileUrl || null,
+        bio: dto.bio || null,
+        gallery: dto.gallery ?? [],
         orderNumber: dto.orderNumber ?? 0,
         isPublished: dto.isPublished ?? true,
       },
@@ -55,6 +67,8 @@ export class FoundersService {
       ...(dto.profileUrl !== undefined
         ? { profileUrl: dto.profileUrl || null }
         : {}),
+      ...(dto.bio !== undefined ? { bio: dto.bio || null } : {}),
+      ...(dto.gallery !== undefined ? { gallery: dto.gallery } : {}),
       ...(dto.orderNumber !== undefined
         ? { orderNumber: dto.orderNumber }
         : {}),
@@ -89,6 +103,8 @@ function toFounderDto(founder: Founder): FounderDto {
     ...(founder.videoUrl ? { videoUrl: founder.videoUrl } : {}),
     ...(founder.previewUrl ? { previewUrl: founder.previewUrl } : {}),
     ...(founder.profileUrl ? { profileUrl: founder.profileUrl } : {}),
+    ...(founder.bio ? { bio: founder.bio } : {}),
+    gallery: founder.gallery,
     orderNumber: founder.orderNumber,
     isPublished: founder.isPublished,
     createdAt: founder.createdAt.toISOString(),

@@ -22,6 +22,12 @@ export class FounderDto {
   @ApiPropertyOptional()
   profileUrl?: string;
 
+  @ApiPropertyOptional()
+  bio?: string;
+
+  @ApiProperty({ type: [String] })
+  gallery: string[];
+
   @ApiProperty()
   orderNumber: number;
 
