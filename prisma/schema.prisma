@@ -143,8 +143,9 @@ model Founder {
   fullName    String
   position    String
   description String   @db.Text
-  videoUrl    String
+  videoUrl    String?
   previewUrl  String?
+  profileUrl  String?
   orderNumber Int      @default(0)
   isPublished Boolean  @default(true)
   createdAt   DateTime @default(now())

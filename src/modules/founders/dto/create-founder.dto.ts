@@ -26,15 +26,24 @@ export class CreateFounderDto {
   @MaxLength(5000)
   description: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined && v !== '')
   @IsUrl({ require_tld: false })
-  videoUrl: string;
+  videoUrl?: string | null;
 
   @ApiPropertyOptional()
   @IsOptional()
   @ValidateIf((_, v) => v !== null && v !== undefined && v !== '')
   @IsUrl({ require_tld: false })
   previewUrl?: string | null;
+
+  @ApiPropertyOptional({ description: 'Link to the personal page' })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined && v !== '')
+  @IsUrl()
+  @MaxLength(500)
+  profileUrl?: string | null;
 
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()

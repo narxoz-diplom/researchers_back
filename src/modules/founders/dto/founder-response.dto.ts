@@ -13,11 +13,14 @@ export class FounderDto {
   @ApiProperty()
   description: string;
 
-  @ApiProperty()
-  videoUrl: string;
+  @ApiPropertyOptional()
+  videoUrl?: string;
 
   @ApiPropertyOptional()
   previewUrl?: string;
+
+  @ApiPropertyOptional()
+  profileUrl?: string;
 
   @ApiProperty()
   orderNumber: number;

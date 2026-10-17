@@ -32,8 +32,9 @@ export class FoundersService {
         fullName: dto.fullName,
         position: dto.position,
         description: dto.description,
-        videoUrl: dto.videoUrl,
+        videoUrl: dto.videoUrl || null,
         previewUrl: dto.previewUrl ?? null,
+        profileUrl: dto.profileUrl || null,
         orderNumber: dto.orderNumber ?? 0,
         isPublished: dto.isPublished ?? true,
       },
@@ -49,8 +50,11 @@ export class FoundersService {
       ...(dto.description !== undefined
         ? { description: dto.description }
         : {}),
-      ...(dto.videoUrl !== undefined ? { videoUrl: dto.videoUrl } : {}),
+      ...(dto.videoUrl !== undefined ? { videoUrl: dto.videoUrl || null } : {}),
       ...(dto.previewUrl !== undefined ? { previewUrl: dto.previewUrl } : {}),
+      ...(dto.profileUrl !== undefined
+        ? { profileUrl: dto.profileUrl || null }
+        : {}),
       ...(dto.orderNumber !== undefined
         ? { orderNumber: dto.orderNumber }
         : {}),
@@ -82,8 +86,9 @@ function toFounderDto(founder: Founder): FounderDto {
     fullName: founder.fullName,
     position: founder.position,
     description: founder.description,
-    videoUrl: founder.videoUrl,
+    ...(founder.videoUrl ? { videoUrl: founder.videoUrl } : {}),
     ...(founder.previewUrl ? { previewUrl: founder.previewUrl } : {}),
+    ...(founder.profileUrl ? { profileUrl: founder.profileUrl } : {}),
     orderNumber: founder.orderNumber,
     isPublished: founder.isPublished,
     createdAt: founder.createdAt.toISOString(),
