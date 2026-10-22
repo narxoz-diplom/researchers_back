@@ -61,6 +61,15 @@ export class CreateCourseDto {
   @IsIn(COURSE_SECTION_CATEGORIES)
   category?: CourseSectionCategory;
 
+  @ApiPropertyOptional({
+    description:
+      'Admins only: create the course on behalf of this author (an approved AUTHOR). Ignored for authors.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  authorId?: string;
+
   @ApiPropertyOptional({ minimum: 0, maximum: 5 })
   @IsOptional()
   @IsNumber()

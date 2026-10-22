@@ -1,11 +1,17 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CourseEnrollmentStatus, CourseStatus, Role } from '@prisma/client';
+import {
+  AuthorStatus,
+  CourseEnrollmentStatus,
+  CourseStatus,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { isCourseSectionCategory } from '../../common/constants/course-categories';
@@ -90,7 +96,7 @@ export class CoursesService {
     dto: CreateCourseDto,
   ): Promise<CourseListItemDto> {
     const course = await this.coursesRepository.create({
-      authorId: user.id,
+      authorId: await this.resolveAuthorId(user, dto.authorId),
       title: dto.title,
       description: dto.description,
       coverUrl: dto.coverUrl,
@@ -183,6 +189,32 @@ export class CoursesService {
 
     const course = await this.coursesRepository.updateStatus(id, status);
     return toCourseListItemFromAuthorCourse(course, existing.lessons.length);
+  }
+
+  /** An admin may publish a course under an author's name (e.g. importing a package for them). */
+  private async resolveAuthorId(
+    user: JwtPayloadUser,
+    requested?: string,
+  ): Promise<string> {
+    if (!requested || requested === user.id) {
+      return user.id;
+    }
+    if (user.role !== Role.ADMIN) {
+      throw new ForbiddenException(ErrorCode.FORBIDDEN_ROLE);
+    }
+    const author = await this.prisma.user.findUnique({
+      where: { id: requested },
+      select: { id: true, role: true, authorStatus: true },
+    });
+    const canOwn =
+      author &&
+      (author.role === Role.ADMIN ||
+        (author.role === Role.AUTHOR &&
+          author.authorStatus === AuthorStatus.APPROVED));
+    if (!canOwn) {
+      throw new BadRequestException(ErrorCode.AUTHOR_NOT_APPROVED);
+    }
+    return author.id;
   }
 
   private assertCanViewCourse(

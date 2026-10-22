@@ -137,6 +137,53 @@ describe('Courses (e2e)', () => {
     expect((res.body as { hasAccess: boolean }).hasAccess).toBe(true);
   });
 
+  it('admin can create a course on behalf of an author; authors cannot', async () => {
+    const me = await request(app.getHttpServer())
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .expect(200);
+    const authorId = (me.body as { id: string }).id;
+
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/courses')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        title: 'Imported for author',
+        description: 'x',
+        category: 'tools',
+        authorId,
+      })
+      .expect(201);
+    expect((res.body as { author: { id: string } }).author.id).toBe(authorId);
+
+    const mine = await request(app.getHttpServer())
+      .get('/api/v1/courses/mine')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .expect(200);
+    expect(
+      (mine.body as { id: string }[]).some(
+        (c) => c.id === (res.body as { id: string }).id,
+      ),
+    ).toBe(true);
+
+    await request(app.getHttpServer())
+      .post('/api/v1/courses')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ title: 'x', description: 'x', authorId: 'nobody' })
+      .expect(400);
+
+    const admins = await request(app.getHttpServer())
+      .get('/api/v1/users?role=ADMIN')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const adminId = (admins.body as { data: { id: string }[] }).data[0].id;
+    await request(app.getHttpServer())
+      .post('/api/v1/courses')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({ title: 'x', description: 'x', authorId: adminId })
+      .expect(403);
+  });
+
   it('subscriber cannot create courses', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/courses')
