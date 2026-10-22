@@ -23,6 +23,7 @@ import type { JwtPayloadUser } from '../../common/decorators/current-user.decora
 import { OptionalUser } from '../../common/decorators/optional-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AllowPendingAuthor } from '../../common/decorators/allow-pending-author.decorator';
 import { CourseOwnerGuard } from '../../common/guards/course-owner.guard';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { CoursesService } from './courses.service';
@@ -49,6 +50,7 @@ export class CoursesController {
     return this.coursesService.listCatalog(query);
   }
 
+  @AllowPendingAuthor()
   @Roles(Role.AUTHOR, Role.ADMIN)
   @Get('mine')
   @ApiOperation({ summary: 'Author courses (all statuses)' })
@@ -93,8 +95,9 @@ export class CoursesController {
   update(
     @Param('id') id: string,
     @Body() dto: UpdateCourseDto,
+    @CurrentUser() user: JwtPayloadUser,
   ): Promise<CourseListItemDto> {
-    return this.coursesService.update(id, dto);
+    return this.coursesService.update(id, dto, user);
   }
 
   @Roles(Role.AUTHOR, Role.ADMIN)

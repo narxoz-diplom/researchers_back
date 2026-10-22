@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { GlobalExceptionFilter } from './../src/common/filters/global-exception.filter';
+import { registerVerified } from './helpers';
 
 describe('Courses (e2e)', () => {
   let app: INestApplication<App>;
@@ -34,14 +35,12 @@ describe('Courses (e2e)', () => {
     adminToken = (adminLogin.body as { accessToken: string }).accessToken;
 
     const authorEmail = `author-${Date.now()}@test.local`;
-    const authorRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: authorEmail,
-        password: 'Password1!',
-        fullName: 'Course Author',
-        role: 'AUTHOR',
-      });
+    const authorRegister = await registerVerified(app, {
+      email: authorEmail,
+      password: 'Password1!',
+      fullName: 'Course Author',
+      role: 'AUTHOR',
+    });
     const authorId = (authorRegister.body as { user: { id: string } }).user.id;
     authorToken = (authorRegister.body as { accessToken: string }).accessToken;
 
@@ -55,14 +54,12 @@ describe('Courses (e2e)', () => {
       .send({ email: authorEmail, password: 'Password1!' });
     authorToken = (authorLogin.body as { accessToken: string }).accessToken;
 
-    const subRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: `sub-${Date.now()}@test.local`,
-        password: 'Password1!',
-        fullName: 'Subscriber',
-        role: 'SUBSCRIBER',
-      });
+    const subRegister = await registerVerified(app, {
+      email: `sub-${Date.now()}@test.local`,
+      password: 'Password1!',
+      fullName: 'Subscriber',
+      role: 'SUBSCRIBER',
+    });
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
   });
 

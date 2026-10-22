@@ -13,6 +13,7 @@ import type {
   RagGenerateSingleLessonRequest,
   RagVectorizeTextRequest,
 } from './../src/modules/vector/rag-client.types';
+import { registerVerified } from './helpers';
 
 function startOfUtcMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
@@ -258,6 +259,7 @@ describe('AI QA (e2e)', () => {
       .send({
         title: 'AI QA Course',
         description: 'Course for AI QA scenarios',
+        category: 'methods',
       });
     courseId = (courseRes.body as { id: string }).id;
 
@@ -269,6 +271,7 @@ describe('AI QA (e2e)', () => {
       .post(`/api/v1/courses/${courseId}/lessons`)
       .set('Authorization', `Bearer ${authorToken}`)
       .send({
+        isPublished: true,
         title: 'Photosynthesis',
         content: 'Lesson 1 about photosynthesis and chlorophyll.',
         orderNumber: 1,
@@ -279,6 +282,7 @@ describe('AI QA (e2e)', () => {
       .post(`/api/v1/courses/${courseId}/lessons`)
       .set('Authorization', `Bearer ${authorToken}`)
       .send({
+        isPublished: true,
         title: 'Quantum mechanics',
         content: 'Lesson 2 QUANTUM_SECRET_LESSON_2 about wave functions.',
         orderNumber: 2,
@@ -292,6 +296,20 @@ describe('AI QA (e2e)', () => {
         vectorIndexedAt: new Date(),
         vectorIndexJobId: null,
       },
+    });
+
+    // Subscriber chat runs on the platform key set by an admin.
+    await request(app.getHttpServer())
+      .patch('/api/v1/admin/ai-settings/subscriber-chat')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ apiKey: 'AIzaSyPlatformChatKey1234567890' })
+      .expect(200);
+
+    // Lesson chat is paid content: the subscriber has an approved enrollment.
+    await prisma.courseEnrollment.upsert({
+      where: { courseId_userId: { courseId, userId: subscriberId } },
+      create: { courseId, userId: subscriberId, status: 'APPROVED' },
+      update: { status: 'APPROVED' },
     });
 
     await new Promise((resolve) => setImmediate(resolve));
@@ -325,15 +343,12 @@ describe('AI QA (e2e)', () => {
 
     it('generate without key returns AUTHOR_AI_KEY_REQUIRED', async () => {
       const freshAuthorEmail = `ai-no-key-${Date.now()}@test.local`;
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({
-          email: freshAuthorEmail,
-          password: 'Password1!',
-          fullName: 'No Key Author',
-          role: 'AUTHOR',
-        })
-        .expect(201);
+      await registerVerified(app, {
+        email: freshAuthorEmail,
+        password: 'Password1!',
+        fullName: 'No Key Author',
+        role: 'AUTHOR',
+      });
 
       await prisma.user.update({
         where: { email: freshAuthorEmail },
@@ -360,6 +375,7 @@ describe('AI QA (e2e)', () => {
         .post(`/api/v1/courses/${ownCourseId}/lessons`)
         .set('Authorization', `Bearer ${freshToken}`)
         .send({
+          isPublished: true,
           title: 'Draft',
           content: 'Draft content',
           orderNumber: 1,

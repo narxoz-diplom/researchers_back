@@ -19,6 +19,7 @@ import { FoundersModule } from './modules/founders/founders.module';
 import { AiModule } from './modules/ai/ai.module';
 import { LandingSectionsModule } from './modules/landing-sections/landing-sections.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
+import { AuthorsModule } from './modules/authors/authors.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { TelegramModule } from './modules/telegram/telegram.module';
     AiModule,
     LandingSectionsModule,
     TelegramModule,
+    AuthorsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

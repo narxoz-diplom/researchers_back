@@ -32,6 +32,8 @@ Auth header: `Authorization: Bearer <accessToken>`
 | `LESSON_ORDER_CONFLICT` | Duplicate `orderNumber` in course |
 | `UPLOAD_LIMIT_EXCEEDED` | Video/material over size limit |
 | `FORBIDDEN_ROLE` | Endpoint requires higher role |
+| `ENROLLMENT_INVALID_STATUS` | Action not allowed in the enrollment's current status (e.g. cancel after approval) |
+| `MATERIAL_PREVIEW_UNSUPPORTED` | `/materials/:id/html` for a non-DOCX file |
 
 ## Endpoints
 
@@ -39,7 +41,7 @@ Auth header: `Authorization: Bearer <accessToken>`
 - `GET /health` — public
 
 ### Auth
-- `POST /auth/register` — public
+- `POST /auth/register` — public (outside production without SMTP the response also carries `devVerifyUrl`, the confirmation link, for local testing)
 - `POST /auth/login` — public
 - `POST /auth/refresh` — public
 - `POST /auth/logout` — JWT
@@ -51,6 +53,8 @@ Auth header: `Authorization: Bearer <accessToken>`
 - `PATCH /users/me/password` — JWT
 - `GET /users` — ADMIN
 - `GET /users/:id` — ADMIN
+- `POST /users` — ADMIN (create a verified account with any role, incl. another ADMIN; password is emailed)
+- `PATCH /users/:id/verify-email` — ADMIN (confirm the email by hand when the link never arrived)
 - `PATCH /users/:id/role` — ADMIN
 - `DELETE /users/:id` — ADMIN
 
@@ -68,14 +72,20 @@ Auth header: `Authorization: Bearer <accessToken>`
 - `GET /courses/:courseId/lessons` — JWT
 - `POST /courses/:courseId/lessons` — owner / ADMIN
 - `PATCH /courses/:courseId/lessons/reorder` — owner / ADMIN
-- `GET /lessons/:id` — JWT + subscription (author/admin bypass)
+- `GET /lessons/:id` — JWT + approved enrollment (author/admin bypass). Students get per-viewer `streamUrl` / `viewUrl` links instead of origin URLs
 - `PATCH /lessons/:id` — owner / ADMIN
 - `DELETE /lessons/:id` — owner / ADMIN
 - `POST /lessons/:id/videos` — owner / ADMIN
 - `PATCH /videos/:id` — owner / ADMIN
 - `DELETE /videos/:id` — owner / ADMIN
+- `GET /videos/:id/stream?t=<media token>` — streams an uploaded video to a viewer with access (HTTP ranges; bearer or media token)
 - `POST /lessons/:id/materials` — owner / ADMIN
+- `GET /materials/:id/view` — inline file for a viewer with access (no download)
+- `GET /materials/:id/html` — DOCX rendered as HTML for a viewer with access
+- `GET /materials/:id/download` — owner / ADMIN only
 - `DELETE /materials/:id` — owner / ADMIN
+
+Lesson files under `uploads/courses/<id>/lessons/` are **not** served by the public `/media/files/` route; YouTube videos are exposed to students only as `youtubeVideoId` (embedded in a sandboxed player).
 
 ### Media
 - `POST /media/sign` — AUTHOR, ADMIN
@@ -88,6 +98,22 @@ Auth header: `Authorization: Bearer <accessToken>`
 - `POST /admin/subscriptions/grant` — ADMIN
 - `POST /admin/subscriptions/:id/revoke` — ADMIN
 - `POST /admin/subscriptions/:id/extend` — ADMIN
+
+### Course enrollments (per-course purchase)
+- `POST /courses/:courseId/enrollments/request` — SUBSCRIBER
+- `POST /courses/:courseId/enrollments/purchase` — SUBSCRIBER (Kaspi QR amount; PENDING/UNDERPAID/REJECTED/CANCELLED → PAID)
+- `POST /courses/:courseId/enrollments/cancel` — SUBSCRIBER (PENDING/PAID/UNDERPAID → CANCELLED; a later purchase starts from the full price)
+- `GET /courses/:courseId/enrollments` — owner / ADMIN
+- `POST /courses/:courseId/enrollments/:id/approve|reject|request-more` — owner / ADMIN
+- `POST /courses/:courseId/enrollments/:id/adjust-amount` — owner / ADMIN: record the amount that actually arrived (`receivedAmountCents`, optional `note`); PAID/UNDERPAID only, journaled as AMOUNT_ADJUSTED
+- `GET /admin/enrollments?status=&search=&courseId=&authorId=&dateFrom=&dateTo=&page=&pageSize=` — ADMIN journal: every enrollment with its event history (`events[]`: REQUESTED, PAYMENT_SUBMITTED, MORE_PAYMENT_REQUESTED, APPROVED, REJECTED, CANCELLED), newest activity first
+- `GET /admin/enrollments/stats?authorId=&dateFrom=&dateTo=&search=` — ADMIN: counts per status, revenue of sold (APPROVED) courses, sum awaiting review (same filters as the list)
+- `GET /admin/enrollments/payments` — ADMIN (PAID queue, kept for compatibility)
+- `GET /me/enrollments` — SUBSCRIBER
+
+### Landing sections
+- `GET /landing-sections` — public
+- `PATCH /landing-sections/:slug` — ADMIN only (site copy, not course content)
 
 ### Progress
 - `POST /lessons/:id/complete` — JWT + subscription

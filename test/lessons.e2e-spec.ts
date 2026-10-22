@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { GlobalExceptionFilter } from './../src/common/filters/global-exception.filter';
+import { registerVerified } from './helpers';
 
 describe('Lessons (e2e)', () => {
   let app: INestApplication<App>;
@@ -35,14 +36,12 @@ describe('Lessons (e2e)', () => {
     adminToken = (adminLogin.body as { accessToken: string }).accessToken;
 
     const authorEmail = `lesson-author-${Date.now()}@test.local`;
-    const authorRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: authorEmail,
-        password: 'Password1!',
-        fullName: 'Lesson Author',
-        role: 'AUTHOR',
-      });
+    const authorRegister = await registerVerified(app, {
+      email: authorEmail,
+      password: 'Password1!',
+      fullName: 'Lesson Author',
+      role: 'AUTHOR',
+    });
     const authorId = (authorRegister.body as { user: { id: string } }).user.id;
 
     await request(app.getHttpServer())
@@ -55,14 +54,12 @@ describe('Lessons (e2e)', () => {
       .send({ email: authorEmail, password: 'Password1!' });
     authorToken = (authorLogin.body as { accessToken: string }).accessToken;
 
-    const subRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: `lesson-sub-${Date.now()}@test.local`,
-        password: 'Password1!',
-        fullName: 'Lesson Subscriber',
-        role: 'SUBSCRIBER',
-      });
+    const subRegister = await registerVerified(app, {
+      email: `lesson-sub-${Date.now()}@test.local`,
+      password: 'Password1!',
+      fullName: 'Lesson Subscriber',
+      role: 'SUBSCRIBER',
+    });
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
 
     const courseRes = await request(app.getHttpServer())
@@ -88,6 +85,7 @@ describe('Lessons (e2e)', () => {
       .post(`/api/v1/courses/${courseId}/lessons`)
       .set('Authorization', `Bearer ${authorToken}`)
       .send({
+        isPublished: true,
         title: 'Intro',
         content: 'Secret lesson content',
         orderNumber: 1,
@@ -132,7 +130,7 @@ describe('Lessons (e2e)', () => {
     const second = await request(app.getHttpServer())
       .post(`/api/v1/courses/${courseId}/lessons`)
       .set('Authorization', `Bearer ${authorToken}`)
-      .send({ title: 'Second', orderNumber: 2 })
+      .send({ isPublished: true, title: 'Second', orderNumber: 2 })
       .expect(201);
 
     const secondId = (second.body as { id: string }).id;

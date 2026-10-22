@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { GlobalExceptionFilter } from './../src/common/filters/global-exception.filter';
+import { registerVerified } from './helpers';
 
 describe('Progress (e2e)', () => {
   let app: INestApplication<App>;
@@ -35,14 +36,12 @@ describe('Progress (e2e)', () => {
     adminToken = (adminLogin.body as { accessToken: string }).accessToken;
 
     const authorEmail = `prog-author-${Date.now()}@test.local`;
-    const authorRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: authorEmail,
-        password: 'Password1!',
-        fullName: 'Progress Author',
-        role: 'AUTHOR',
-      });
+    const authorRegister = await registerVerified(app, {
+      email: authorEmail,
+      password: 'Password1!',
+      fullName: 'Progress Author',
+      role: 'AUTHOR',
+    });
     const authorUserId = (authorRegister.body as { user: { id: string } }).user
       .id;
 
@@ -56,14 +55,12 @@ describe('Progress (e2e)', () => {
       .send({ email: authorEmail, password: 'Password1!' });
     authorToken = (authorLogin.body as { accessToken: string }).accessToken;
 
-    const subRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: `prog-sub-${Date.now()}@test.local`,
-        password: 'Password1!',
-        fullName: 'Progress Subscriber',
-        role: 'SUBSCRIBER',
-      });
+    const subRegister = await registerVerified(app, {
+      email: `prog-sub-${Date.now()}@test.local`,
+      password: 'Password1!',
+      fullName: 'Progress Subscriber',
+      role: 'SUBSCRIBER',
+    });
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
 
     const courseRes = await request(app.getHttpServer())
@@ -79,11 +76,11 @@ describe('Progress (e2e)', () => {
     const lessonRes = await request(app.getHttpServer())
       .post(`/api/v1/courses/${courseId}/lessons`)
       .set('Authorization', `Bearer ${authorToken}`)
-      .send({ title: 'L1', content: 'C1', orderNumber: 1 });
+      .send({ isPublished: true, title: 'L1', content: 'C1', orderNumber: 1 });
     const lesson2 = await request(app.getHttpServer())
       .post(`/api/v1/courses/${courseId}/lessons`)
       .set('Authorization', `Bearer ${authorToken}`)
-      .send({ title: 'L2', content: 'C2', orderNumber: 2 });
+      .send({ isPublished: true, title: 'L2', content: 'C2', orderNumber: 2 });
 
     lessonId = (lessonRes.body as { id: string }).id;
     void (lesson2.body as { id: string }).id;
@@ -96,7 +93,8 @@ describe('Progress (e2e)', () => {
 
     await request(app.getHttpServer())
       .post(`/api/v1/courses/${courseId}/enrollments/purchase`)
-      .set('Authorization', `Bearer ${subscriberToken}`);
+      .set('Authorization', `Bearer ${subscriberToken}`)
+      .send({ paidAmountCents: 499000 });
 
     await request(app.getHttpServer())
       .post(`/api/v1/courses/${courseId}/enrollments/${enrollmentId}/approve`)
@@ -108,14 +106,12 @@ describe('Progress (e2e)', () => {
   });
 
   it('cannot complete without approved enrollment', async () => {
-    const otherSub = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: `no-sub-${Date.now()}@test.local`,
-        password: 'Password1!',
-        fullName: 'No Sub',
-        role: 'SUBSCRIBER',
-      });
+    const otherSub = await registerVerified(app, {
+      email: `no-sub-${Date.now()}@test.local`,
+      password: 'Password1!',
+      fullName: 'No Sub',
+      role: 'SUBSCRIBER',
+    });
     const token = (otherSub.body as { accessToken: string }).accessToken;
 
     await request(app.getHttpServer())

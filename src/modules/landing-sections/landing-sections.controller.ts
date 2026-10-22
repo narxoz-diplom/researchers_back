@@ -35,12 +35,14 @@ export class LandingSectionsController {
     return this.landingSectionsService.list();
   }
 
-  @Roles(Role.ADMIN, Role.AUTHOR)
+  @Roles(Role.ADMIN)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @Patch(':slug')
   @ApiOperation({
-    summary: 'Update landing section description (author/admin)',
+    summary: 'Update landing section description (admin only)',
+    description:
+      'Section texts are site-wide copy, not course content, so authors cannot change them.',
   })
   @ApiResponse({ status: 200, type: LandingSectionDto })
   update(

@@ -5,6 +5,8 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Req,
+  Res,
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
@@ -12,12 +14,15 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiProduces,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { MaterialAccessGuard } from '../../common/guards/material-access.guard';
-import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
+import type { Request, Response } from 'express';
+import { MediaKind } from '../../common/decorators/media-kind.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { LessonMediaGuard } from '../../common/guards/lesson-media.guard';
+import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { LessonsService } from './lessons.service';
 
@@ -35,16 +40,49 @@ export class MaterialsController {
   constructor(private readonly lessonsService: LessonsService) {}
 
   @Public()
-  @UseGuards(OptionalJwtAuthGuard, MaterialAccessGuard)
+  @UseGuards(OptionalJwtAuthGuard, LessonMediaGuard)
+  @MediaKind('material')
+  @Get(':id/view')
+  @ApiOperation({
+    summary: 'View a lesson material in the browser (no download)',
+    description:
+      'Serves the file inline to an admin, the course author or a student with an approved enrollment. Accepts the bearer token or the `t` media token from GET /lessons/:id. Never cached.',
+  })
+  @ApiQuery({ name: 't', required: false, description: 'Media token' })
+  @ApiResponse({ status: 200, description: 'File bytes, inline' })
+  @ApiResponse({ status: 403, description: 'SUBSCRIPTION_REQUIRED' })
+  view(
+    @Param('id') id: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ): Promise<void> {
+    return this.lessonsService.viewMaterial(id, req, res);
+  }
+
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard, LessonMediaGuard)
+  @MediaKind('material')
+  @Get(':id/html')
+  @ApiOperation({
+    summary: 'Lesson material rendered as HTML (DOCX only)',
+    description: 'Same access rules as /view.',
+  })
+  @ApiResponse({ status: 200, description: '{ html }' })
+  @ApiResponse({ status: 400, description: 'MATERIAL_PREVIEW_UNSUPPORTED' })
+  html(@Param('id') id: string): Promise<{ html: string }> {
+    return this.lessonsService.renderMaterialHtml(id);
+  }
+
+  @UseGuards(LessonOwnerGuard)
   @Get(':id/download')
   @ApiOperation({
-    summary: 'Download lesson material file',
+    summary: 'Download the original material file (course author / admin)',
     description:
-      'Streams the file with Content-Disposition attachment. Public for lessons available to everyone.',
+      'Students only view materials on the site; the file itself is for the author and admins.',
   })
   @ApiProduces('application/octet-stream')
   @ApiResponse({ status: 200, description: 'File bytes' })
-  @ApiResponse({ status: 403, description: 'SUBSCRIPTION_REQUIRED' })
+  @ApiResponse({ status: 403, description: 'OWNERSHIP_REQUIRED' })
   async download(@Param('id') id: string): Promise<StreamableFile> {
     const { buffer, filename, mimeType } =
       await this.lessonsService.downloadMaterial(id);

@@ -27,4 +27,17 @@ export class UpdateLandingSectionDto {
   @IsString({ each: true })
   @MaxLength(500, { each: true })
   points: string[];
+
+  @ApiProperty({ description: 'Kazakh description', maxLength: 5000 })
+  @IsString()
+  @MaxLength(5000)
+  descriptionKk: string;
+
+  @ApiProperty({ type: [String], description: 'Kazakh bullet points' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  pointsKk: string[];
 }

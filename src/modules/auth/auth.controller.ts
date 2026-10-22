@@ -26,7 +26,10 @@ import { LogoutDto } from './dto/logout.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { RegisterDto } from './dto/register.dto';
-import { RegisterResponseDto } from './dto/register-response.dto';
+import {
+  RegisterResponseDto,
+  VerificationSentResponseDto,
+} from './dto/register-response.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 
@@ -81,10 +84,10 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('resend-verification')
   @ApiOperation({ summary: 'Resend email verification link' })
-  @ApiResponse({ status: 200, type: MessageResponseDto })
+  @ApiResponse({ status: 200, type: VerificationSentResponseDto })
   resendVerification(
     @Body() dto: ResendVerificationDto,
-  ): Promise<MessageResponseDto> {
+  ): Promise<VerificationSentResponseDto> {
     return this.authService.resendVerification(dto.email);
   }
 

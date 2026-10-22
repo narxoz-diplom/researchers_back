@@ -1,5 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CourseEnrollmentStatus } from '@prisma/client';
+import {
+  CourseEnrollmentStatus,
+  EnrollmentEventType,
+  Role,
+} from '@prisma/client';
 
 export class EnrollmentUserDto {
   @ApiProperty()
@@ -59,6 +63,84 @@ export class CourseEnrollmentDto {
 export class PaymentEnrollmentDto extends CourseEnrollmentDto {
   @ApiProperty()
   course: { id: string; title: string; priceCents: number };
+}
+
+export class EnrollmentEventActorDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  fullName: string;
+
+  @ApiProperty({ enum: Role })
+  role: Role;
+}
+
+/** One line of the enrollment journal. */
+export class EnrollmentEventDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ enum: EnrollmentEventType })
+  type: EnrollmentEventType;
+
+  @ApiPropertyOptional({ type: EnrollmentEventActorDto })
+  actor?: EnrollmentEventActorDto;
+
+  @ApiPropertyOptional({ description: 'Amount of this payment, in tiyn' })
+  amountCents?: number;
+
+  @ApiPropertyOptional({
+    description: 'Running total after the event, in tiyn',
+  })
+  totalPaidCents?: number;
+
+  @ApiPropertyOptional()
+  note?: string;
+
+  @ApiProperty()
+  createdAt: string;
+}
+
+export class AdminEnrollmentDto extends PaymentEnrollmentDto {
+  @ApiProperty()
+  updatedAt: string;
+
+  @ApiProperty({ type: [EnrollmentEventDto], description: 'Oldest first' })
+  events: EnrollmentEventDto[];
+}
+
+export class PagedAdminEnrollmentsDto {
+  @ApiProperty({ type: [AdminEnrollmentDto] })
+  data: AdminEnrollmentDto[];
+
+  @ApiProperty()
+  meta: { total: number; page: number; pageSize: number };
+}
+
+export class AdminEnrollmentStatsDto {
+  @ApiProperty({
+    description: 'Number of enrollments per current status',
+    example: {
+      PENDING: 2,
+      PAID: 1,
+      UNDERPAID: 0,
+      APPROVED: 10,
+      REJECTED: 1,
+      CANCELLED: 3,
+    },
+  })
+  counts: Record<CourseEnrollmentStatus, number>;
+
+  @ApiProperty({
+    description: 'Sum of payments on sold (APPROVED) courses, in tiyn',
+  })
+  soldRevenueCents: number;
+
+  @ApiProperty({
+    description: 'Sum of payments awaiting review (PAID), in tiyn',
+  })
+  awaitingReviewCents: number;
 }
 
 export class MyEnrollmentDto {

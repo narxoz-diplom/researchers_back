@@ -25,8 +25,17 @@ export class LessonVideoResponseDto {
   @ApiProperty({ enum: VideoSource })
   source: VideoSource;
 
-  @ApiProperty()
-  url: string;
+  @ApiPropertyOptional({
+    description:
+      'Origin URL (Cloudinary file or YouTube watch link). Only for the course author and admins.',
+  })
+  url?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'API path (relative to the base URL) that streams the file to this viewer; the embedded token expires in a few hours. Absent for YouTube videos, which are embedded by youtubeVideoId.',
+  })
+  streamUrl?: string;
 
   @ApiPropertyOptional()
   youtubeVideoId?: string;
@@ -48,8 +57,21 @@ export class LessonMaterialResponseDto {
   @ApiProperty()
   title: string;
 
-  @ApiProperty()
-  url: string;
+  @ApiPropertyOptional({
+    description: 'Origin URL. Only for the course author and admins.',
+  })
+  url?: string;
+
+  @ApiProperty({
+    description:
+      'API path that serves the file inline (Content-Disposition: inline) to a viewer with access.',
+  })
+  viewUrl: string;
+
+  @ApiPropertyOptional({
+    description: 'API path that returns the document as HTML (DOCX only).',
+  })
+  htmlUrl?: string;
 
   @ApiProperty()
   mimeType: string;

@@ -18,9 +18,6 @@ export class LessonVideoSummaryDto {
   title: string;
 
   @ApiProperty()
-  url: string;
-
-  @ApiProperty()
   durationSeconds: number;
 
   @ApiProperty()
@@ -39,9 +36,6 @@ export class LessonMaterialSummaryDto {
 
   @ApiProperty()
   title: string;
-
-  @ApiProperty()
-  url: string;
 
   @ApiProperty()
   mimeType: string;
@@ -65,10 +59,18 @@ export class LessonSummaryDto {
   })
   content?: string;
 
-  @ApiPropertyOptional({ type: [LessonVideoSummaryDto] })
+  @ApiPropertyOptional({
+    type: [LessonVideoSummaryDto],
+    description:
+      'Omitted without access. Playable links come from GET /lessons/:id.',
+  })
   videos?: LessonVideoSummaryDto[];
 
-  @ApiPropertyOptional({ type: [LessonMaterialSummaryDto] })
+  @ApiPropertyOptional({
+    type: [LessonMaterialSummaryDto],
+    description:
+      'Omitted without access. Viewable links come from GET /lessons/:id.',
+  })
   materials?: LessonMaterialSummaryDto[];
 }
 

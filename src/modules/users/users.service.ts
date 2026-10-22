@@ -1,10 +1,11 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { AuthorStatus, Role } from '@prisma/client';
 import { ErrorCode } from '../../common/errors/error-codes';
 import * as bcrypt from 'bcrypt';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -15,6 +16,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
 import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { MediaService } from '../media/media.service';
 import { MailService } from '../mail/mail.service';
 import { toUserResponse } from './user.mapper';
@@ -24,6 +26,8 @@ const BCRYPT_ROUNDS = 10;
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly mediaService: MediaService,
@@ -93,6 +97,42 @@ export class UsersService {
     return toUserResponse(user);
   }
 
+  /**
+   * An admin adds a colleague (another admin, an author or a student) directly:
+   * no signup, no email confirmation step. The password is emailed to them.
+   */
+  async createByAdmin(dto: CreateUserDto): Promise<UserResponseDto> {
+    const taken = await this.usersRepository.findByEmail(dto.email);
+    if (taken) {
+      throw new ConflictException(ErrorCode.EMAIL_TAKEN);
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+    const user = await this.usersRepository.create({
+      email: dto.email,
+      passwordHash,
+      fullName: dto.fullName,
+      role: dto.role,
+      emailVerified: true,
+      // An admin creating an author vouches for them, as with a role change.
+      authorStatus: dto.role === Role.AUTHOR ? AuthorStatus.APPROVED : null,
+    });
+
+    void this.mailService
+      .sendAccountCreatedByAdminEmail({
+        to: user.email,
+        fullName: user.fullName,
+        password: dto.password,
+        role: user.role,
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.error(`Account created email error: ${message}`);
+      });
+
+    return toUserResponse(user);
+  }
+
   async updateUserByAdmin(
     id: string,
     dto: AdminUpdateUserDto,
@@ -149,6 +189,15 @@ export class UsersService {
     });
   }
 
+  /** For users whose confirmation email never arrived. */
+  async verifyEmailByAdmin(id: string): Promise<UserResponseDto> {
+    const user = await this.findUserOrThrow(id);
+    if (user.emailVerified) {
+      return toUserResponse(user);
+    }
+    return toUserResponse(await this.usersRepository.verifyEmailByAdmin(id));
+  }
+
   async changeRole(id: string, dto: ChangeRoleDto): Promise<UserResponseDto> {
     const user = await this.findUserOrThrow(id);
 
@@ -156,7 +205,18 @@ export class UsersService {
       await this.ensureNotLastAdmin();
     }
 
-    const updated = await this.usersRepository.updateRole(id, dto.role);
+    // An admin making someone an author vouches for them; leaving the role clears the review.
+    const authorStatus =
+      dto.role !== Role.AUTHOR
+        ? null
+        : user.role === Role.AUTHOR
+          ? user.authorStatus
+          : AuthorStatus.APPROVED;
+    const updated = await this.usersRepository.updateRole(
+      id,
+      dto.role,
+      authorStatus,
+    );
     return toUserResponse(updated);
   }
 

@@ -25,6 +25,7 @@ import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AllowPendingAuthor } from '../../common/decorators/allow-pending-author.decorator';
 import { LocalUploadDto } from './dto/local-upload.dto';
 import { LocalUploadResponseDto } from './dto/local-upload-response.dto';
 import { SignResponseDto } from './dto/sign-response.dto';
@@ -54,6 +55,7 @@ export class MediaController {
     return this.mediaService.sign(dto);
   }
 
+  @AllowPendingAuthor()
   @Roles(Role.AUTHOR, Role.ADMIN, Role.SUBSCRIBER)
   @HttpCode(HttpStatus.OK)
   @Post('upload')

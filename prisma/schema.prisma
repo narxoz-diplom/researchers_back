@@ -41,6 +41,8 @@ enum CourseEnrollmentStatus {
   UNDERPAID
   APPROVED
   REJECTED
+  /// Withdrawn by the student before access was granted.
+  CANCELLED
 }
 
 enum LessonVectorIndexStatus {
@@ -62,27 +64,72 @@ enum LessonGenerationJobStatus {
   FAILED
 }
 
+/// One line of the enrollment journal: who did what to a request and when.
+enum EnrollmentEventType {
+  REQUESTED
+  PAYMENT_SUBMITTED
+  MORE_PAYMENT_REQUESTED
+  /// Admin/author corrected the recorded amount to what actually arrived.
+  AMOUNT_ADJUSTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Admin review of an author's signup (public offer). Only APPROVED authors manage courses.
+enum AuthorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
+  id            String        @id @default(cuid())
+  email         String        @unique
   passwordHash  String
   fullName      String
-  role          Role     @default(SUBSCRIBER)
+  role          Role          @default(SUBSCRIBER)
+  /// Set only for authors; null for subscribers and admins.
+  authorStatus  AuthorStatus?
   avatarUrl     String?
-  emailVerified Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  emailVerified Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  authorApplication          AuthorApplication?  @relation("AuthorApplication")
+  reviewedAuthorApplications AuthorApplication[] @relation("AuthorApplicationReviewer")
 
   courses                 Course[]                 @relation("CourseAuthor")
   subscriptions           Subscription[]           @relation("UserSubscriptions")
-  grantedSubs               Subscription[]           @relation("GrantedBy")
-  progress                  Progress[]
-  refreshTokens             RefreshToken[]
-  emailVerificationTokens   EmailVerificationToken[]
-  enrollments               CourseEnrollment[]       @relation("CourseEnrollments")
-  approvedEnrollments       CourseEnrollment[]       @relation("ApprovedEnrollments")
-  authorAiSettings          AuthorAiSettings?
-  lessonChatUsage           LessonChatUsage[]
+  grantedSubs             Subscription[]           @relation("GrantedBy")
+  progress                Progress[]
+  refreshTokens           RefreshToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  enrollments             CourseEnrollment[]       @relation("CourseEnrollments")
+  approvedEnrollments     CourseEnrollment[]       @relation("ApprovedEnrollments")
+  enrollmentEvents        CourseEnrollmentEvent[]  @relation("EnrollmentEventActor")
+  authorAiSettings        AuthorAiSettings?
+  lessonChatUsage         LessonChatUsage[]
+}
+
+/// Public offer filled in by an author at signup; reviewed by an admin.
+model AuthorApplication {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  legalName    String
+  iin          String
+  phone        String
+  city         String
+  offerVersion String
+  acceptedAt   DateTime
+  reviewNote   String?
+  reviewedAt   DateTime?
+  reviewedById String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user       User  @relation("AuthorApplication", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("AuthorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 }
 
 model AuthorAiSettings {
@@ -157,10 +204,14 @@ model Founder {
 }
 
 model LandingSection {
-  slug        String   @id
-  description String   @db.Text
-  points      String[]
-  updatedAt   DateTime @updatedAt
+  slug          String   @id
+  /// Russian text.
+  description   String   @db.Text
+  points        String[]
+  /// Kazakh text, shown when the site language is Kazakh.
+  descriptionKk String   @default("") @db.Text
+  pointsKk      String[] @default([])
+  updatedAt     DateTime @updatedAt
 }
 
 model Course {
@@ -186,9 +237,9 @@ model Course {
 }
 
 model CourseEnrollment {
-  id           String                 @id @default(cuid())
-  courseId     String
-  userId       String
+  id                  String                 @id @default(cuid())
+  courseId            String
+  userId              String
   status              CourseEnrollmentStatus @default(PENDING)
   message             String?
   paidAt              DateTime?
@@ -196,16 +247,41 @@ model CourseEnrollment {
   expectedAmountCents Int?
   adminPaymentNote    String?
   approvedAt          DateTime?
-  approvedById String?
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
+  approvedById        String?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
-  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  user       User   @relation("CourseEnrollments", fields: [userId], references: [id], onDelete: Cascade)
-  approvedBy User?  @relation("ApprovedEnrollments", fields: [approvedById], references: [id])
+  course     Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user       User                    @relation("CourseEnrollments", fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy User?                   @relation("ApprovedEnrollments", fields: [approvedById], references: [id])
+  events     CourseEnrollmentEvent[]
 
   @@unique([courseId, userId])
   @@index([courseId, status])
+  @@index([status, updatedAt])
+}
+
+/// Journal of an enrollment: requests, payments, top-up requests, decisions and cancellations.
+/// Kept even after the enrollment restarts (a cancelled request bought again), so the admin
+/// sees the whole story, not only the current status.
+model CourseEnrollmentEvent {
+  id             String              @id @default(cuid())
+  enrollmentId   String
+  type           EnrollmentEventType
+  /// Student for their own actions, admin/author for decisions; null if the account is gone.
+  actorId        String?
+  /// Amount of this payment (PAYMENT_SUBMITTED), in tiyn.
+  amountCents    Int?
+  /// Running total of the enrollment after this event, in tiyn.
+  totalPaidCents Int?
+  note           String?
+  createdAt      DateTime            @default(now())
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  actor      User?            @relation("EnrollmentEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([enrollmentId, createdAt])
+  @@index([type, createdAt])
 }
 
 model Lesson {
@@ -233,22 +309,22 @@ model Lesson {
 }
 
 model LessonGenerationJob {
-  id               String                    @id @default(cuid())
-  lessonId         String
-  authorId         String
-  status           LessonGenerationJobStatus @default(PROCESSING)
-  generationPhase  String?
-  outputFormat     String?
-  content          String?                   @db.Text
-  title            String?
-  usageJson        Json?
-  errorCode        String?
-  errorMessage     String?                   @db.Text
-  ragRequestId     String?
-  ragTaskId        String?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
-  completedAt      DateTime?
+  id              String                    @id @default(cuid())
+  lessonId        String
+  authorId        String
+  status          LessonGenerationJobStatus @default(PROCESSING)
+  generationPhase String?
+  outputFormat    String?
+  content         String?                   @db.Text
+  title           String?
+  usageJson       Json?
+  errorCode       String?
+  errorMessage    String?                   @db.Text
+  ragRequestId    String?
+  ragTaskId       String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  completedAt     DateTime?
 
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 

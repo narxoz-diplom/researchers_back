@@ -44,7 +44,7 @@ describe('Auth (e2e)', () => {
       })
       .expect(201);
 
-    expect(registerRes.body).toEqual({
+    expect(registerRes.body).toMatchObject({
       message: 'CHECK_EMAIL',
       email,
     });

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AllowPendingAuthor } from '../../common/decorators/allow-pending-author.decorator';
 import { ApiCommonErrors } from '../../common/decorators/api-error-responses.decorator';
 import { AiService } from './ai.service';
 import { AiModelsResponseDto } from './dto/ai-model.dto';
@@ -17,6 +18,7 @@ import { AiModelsResponseDto } from './dto/ai-model.dto';
 export class AiController {
   constructor(private readonly aiService: AiService) {}
 
+  @AllowPendingAuthor()
   @Roles(Role.AUTHOR, Role.ADMIN)
   @Get('models')
   @ApiOperation({ summary: 'List selectable LLM models for lesson generation' })

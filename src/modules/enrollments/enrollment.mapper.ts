@@ -1,10 +1,14 @@
 import {
+  AdminEnrollmentRow,
+  EnrollmentEventWithActor,
   EnrollmentWithUser,
   EnrollmentWithUserAndCourse,
   EnrollmentWithCourseSummary,
 } from './enrollments.repository.interface';
 import {
+  AdminEnrollmentDto,
   CourseEnrollmentDto,
+  EnrollmentEventDto,
   MyEnrollmentDto,
   MyEnrollmentWithCourseDto,
   PaymentEnrollmentDto,
@@ -79,5 +83,31 @@ export function toPaymentEnrollmentDto(
       title: row.course.title,
       priceCents: row.course.priceCents,
     },
+  };
+}
+
+export function toEnrollmentEventDto(
+  event: EnrollmentEventWithActor,
+): EnrollmentEventDto {
+  return {
+    id: event.id,
+    type: event.type,
+    ...(event.actor ? { actor: event.actor } : {}),
+    ...(event.amountCents != null ? { amountCents: event.amountCents } : {}),
+    ...(event.totalPaidCents != null
+      ? { totalPaidCents: event.totalPaidCents }
+      : {}),
+    ...(event.note ? { note: event.note } : {}),
+    createdAt: event.createdAt.toISOString(),
+  };
+}
+
+export function toAdminEnrollmentDto(
+  row: AdminEnrollmentRow,
+): AdminEnrollmentDto {
+  return {
+    ...toPaymentEnrollmentDto(row),
+    updatedAt: row.updatedAt.toISOString(),
+    events: row.events.map(toEnrollmentEventDto),
   };
 }

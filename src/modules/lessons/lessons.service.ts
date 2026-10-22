@@ -6,11 +6,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CourseStatus, Prisma, Role, VideoSource } from '@prisma/client';
+import type { Request, Response } from 'express';
+import * as mammoth from 'mammoth';
+import { extname } from 'path';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { parseYoutubeUrl } from '../../common/utils/youtube-url';
 import { COURSES_REPOSITORY } from '../courses/courses.constants';
 import type { ICoursesRepository } from '../courses/courses.repository.interface';
+import { MediaStreamService } from '../media/media-stream.service';
+import { MediaTokenService } from '../media/media-token.service';
 import { MediaService } from '../media/media.service';
 import { LessonIndexService } from '../vector/lesson-index.service';
 import { UploadResourceType } from '../media/media.types';
@@ -34,11 +39,20 @@ import { ReorderLessonsDto } from './dto/reorder-lessons.dto';
 import { UpdateLessonDto } from './dto/update-lesson.dto';
 import { UpdateVideoDto } from './dto/update-video.dto';
 import {
+  canRenderMaterialAsHtml,
   toLessonDetail,
   toLessonMaterial,
   toLessonSummary,
   toLessonVideo,
 } from './lessons.mapper';
+
+const VIDEO_MIME_BY_EXT: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.m4v': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.ogv': 'video/ogg',
+};
 
 @Injectable()
 export class LessonsService {
@@ -48,6 +62,8 @@ export class LessonsService {
     @Inject(COURSES_REPOSITORY)
     private readonly coursesRepository: ICoursesRepository,
     private readonly mediaService: MediaService,
+    private readonly mediaTokenService: MediaTokenService,
+    private readonly mediaStreamService: MediaStreamService,
     private readonly lessonIndexService: LessonIndexService,
   ) {}
 
@@ -78,14 +94,24 @@ export class LessonsService {
       throw new NotFoundException('Lesson not found');
     }
 
-    if (
-      !lesson.isPublished &&
-      (!user || !this.canManageLessons(lesson.course.authorId, user))
-    ) {
+    const canManage =
+      !!user && this.canManageLessons(lesson.course.authorId, user);
+    if (!lesson.isPublished && !canManage) {
       throw new NotFoundException('Lesson not found');
     }
 
-    return toLessonDetail(lesson);
+    // Students get per-user stream links instead of the origin URLs.
+    return toLessonDetail(lesson, {
+      includeSourceUrls: canManage,
+      ...(user
+        ? {
+            mediaToken: this.mediaTokenService.sign({
+              userId: user.id,
+              lessonId: lesson.id,
+            }),
+          }
+        : {}),
+    });
   }
 
   async create(
@@ -340,6 +366,57 @@ export class LessonsService {
     };
   }
 
+  /** Streams an uploaded video to a viewer the guard already admitted. */
+  async streamVideo(id: string, req: Request, res: Response): Promise<void> {
+    const video = await this.lessonsRepository.findVideoById(id);
+    if (!video || video.source !== VideoSource.CLOUDINARY) {
+      throw new NotFoundException('Video not found');
+    }
+    const ext = extname(safeUrlPath(video.url)).toLowerCase();
+    await this.mediaStreamService.stream(req, res, {
+      storedUrl: video.url,
+      publicId: video.cloudinaryPublicId,
+      resourceType: UploadResourceType.VIDEO,
+      mimeType: VIDEO_MIME_BY_EXT[ext] ?? 'video/mp4',
+      filename: `${video.title}${ext}`,
+    });
+  }
+
+  /** Serves a material inline (for the in-page viewer) to an admitted viewer. */
+  async viewMaterial(id: string, req: Request, res: Response): Promise<void> {
+    const material = await this.lessonsRepository.findMaterialById(id);
+    if (!material) {
+      throw new NotFoundException('Material not found');
+    }
+    await this.mediaStreamService.stream(req, res, {
+      storedUrl: material.url,
+      publicId: material.cloudinaryPublicId,
+      resourceType: UploadResourceType.RAW,
+      mimeType: material.mimeType || 'application/octet-stream',
+      filename: material.title,
+    });
+  }
+
+  /** DOCX rendered to HTML so students can read it on the page without a download. */
+  async renderMaterialHtml(id: string): Promise<{ html: string }> {
+    const material = await this.lessonsRepository.findMaterialById(id);
+    if (!material) {
+      throw new NotFoundException('Material not found');
+    }
+    if (!canRenderMaterialAsHtml(material.mimeType)) {
+      throw new BadRequestException(ErrorCode.MATERIAL_PREVIEW_UNSUPPORTED);
+    }
+
+    const buffer = await this.mediaService.downloadForIndexing(
+      material.cloudinaryPublicId,
+      UploadResourceType.RAW,
+      material.url,
+      material.mimeType,
+    );
+    const result = await mammoth.convertToHtml({ buffer });
+    return { html: result.value };
+  }
+
   async downloadMaterial(id: string): Promise<{
     buffer: Buffer;
     filename: string;
@@ -412,5 +489,13 @@ export class LessonsService {
     if (status !== CourseStatus.PUBLISHED) {
       throw new NotFoundException('Course not found');
     }
+  }
+}
+
+function safeUrlPath(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url;
   }
 }

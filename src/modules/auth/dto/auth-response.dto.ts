@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import { AuthorStatus, Role } from '@prisma/client';
 
 export class AuthUserDto {
   @ApiProperty()
@@ -13,6 +13,12 @@ export class AuthUserDto {
 
   @ApiProperty({ enum: Role })
   role: Role;
+
+  @ApiPropertyOptional({
+    enum: AuthorStatus,
+    description: 'Admin review of the author offer (authors only)',
+  })
+  authorStatus?: AuthorStatus;
 
   @ApiPropertyOptional()
   avatarUrl?: string;

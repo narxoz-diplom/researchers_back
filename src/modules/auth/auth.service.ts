@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { AuthorStatus, Role } from '@prisma/client';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -13,12 +13,16 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthorsService } from '../authors/authors.service';
 import { MailService } from '../mail/mail.service';
 import { UsersRepository } from '../users/users.repository';
 import { AuthResponseDto, AuthUserDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { RegisterResponseDto } from './dto/register-response.dto';
+import {
+  RegisterResponseDto,
+  VerificationSentResponseDto,
+} from './dto/register-response.dto';
 
 const BCRYPT_ROUNDS = 10;
 const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -31,6 +35,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly authorsService: AuthorsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<RegisterResponseDto> {
@@ -43,20 +48,46 @@ export class AuthService {
       throw new BadRequestException(ErrorCode.FORBIDDEN_ROLE);
     }
 
+    const isAuthor = dto.role === Role.AUTHOR;
+    // Authors sign up by accepting the public offer and may manage courses at once;
+    // an admin can still revoke them later from the Authors page.
+    if (isAuthor && !dto.authorApplication) {
+      throw new BadRequestException(ErrorCode.AUTHOR_APPLICATION_REQUIRED);
+    }
+    const application = isAuthor
+      ? AuthorsService.applicationData(dto.authorApplication!)
+      : null;
+
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
-    const user = await this.usersRepository.create({
-      email: dto.email,
-      passwordHash,
-      fullName: dto.fullName,
-      role: dto.role,
-      emailVerified: false,
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        fullName: dto.fullName,
+        role: dto.role,
+        emailVerified: false,
+        ...(application
+          ? {
+              authorStatus: AuthorStatus.APPROVED,
+              authorApplication: { create: application },
+            }
+          : {}),
+      },
     });
 
-    await this.sendVerificationEmail(user);
+    const verifyUrl = await this.sendVerificationEmail(user);
+    if (application) {
+      this.authorsService.notifyNewApplication(
+        user,
+        application.legalName,
+        false,
+      );
+    }
 
     return {
       message: 'CHECK_EMAIL',
       email: user.email,
+      ...this.devVerifyUrl(verifyUrl),
     };
   }
 
@@ -111,14 +142,28 @@ export class AuthService {
 
   async resendVerification(
     email: string,
-  ): Promise<{ message: 'VERIFICATION_SENT' }> {
+  ): Promise<VerificationSentResponseDto> {
     const user = await this.usersRepository.findByEmail(email);
     if (!user || user.emailVerified) {
       return { message: 'VERIFICATION_SENT' };
     }
 
-    await this.sendVerificationEmail(user);
-    return { message: 'VERIFICATION_SENT' };
+    const verifyUrl = await this.sendVerificationEmail(user);
+    return { message: 'VERIFICATION_SENT', ...this.devVerifyUrl(verifyUrl) };
+  }
+
+  /**
+   * Without SMTP the link only lands in the server log, which makes the signup
+   * flow untestable from the browser. Outside production it is returned to the
+   * client instead; with SMTP configured, or in production, it never is.
+   */
+  private devVerifyUrl(verifyUrl: string): { devVerifyUrl?: string } {
+    const production =
+      this.configService.get<string>('NODE_ENV') === 'production';
+    if (production || this.mailService.isConfigured()) {
+      return {};
+    }
+    return { devVerifyUrl: verifyUrl };
   }
 
   async refresh(refreshToken: string): Promise<AuthResponseDto> {
@@ -170,7 +215,7 @@ export class AuthService {
     return this.toAuthUser(user);
   }
 
-  private async sendVerificationEmail(user: User): Promise<void> {
+  private async sendVerificationEmail(user: User): Promise<string> {
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(rawToken);
     const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MS);
@@ -197,6 +242,7 @@ export class AuthService {
       fullName: user.fullName,
       verifyUrl,
     });
+    return verifyUrl;
   }
 
   private async issueTokens(user: User): Promise<AuthResponseDto> {
@@ -289,6 +335,7 @@ export class AuthService {
       email: user.email,
       fullName: user.fullName,
       role: user.role,
+      ...(user.authorStatus ? { authorStatus: user.authorStatus } : {}),
       ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
     };
   }

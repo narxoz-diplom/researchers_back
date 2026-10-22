@@ -45,7 +45,7 @@ export class LessonsController {
   @ApiOperation({
     summary: 'Lesson details with content and media',
     description:
-      'Public when lesson is marked available for everyone (isPublished). Otherwise requires approved enrollment.',
+      'isPublished = visible to students. Content requires an approved enrollment; the course author and admins also see hidden lessons.',
   })
   @ApiResponse({ status: 200, type: LessonDetailResponseDto })
   @ApiResponse({ status: 403, description: 'SUBSCRIPTION_REQUIRED' })

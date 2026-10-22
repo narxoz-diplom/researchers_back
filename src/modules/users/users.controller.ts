@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import {
@@ -25,6 +26,7 @@ import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AdminUpdateUserDto } from './dto/admin-update-user.dto';
 import { AdminResetPasswordDto } from './dto/admin-reset-password.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { PagedUsersDto, UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
@@ -79,6 +81,20 @@ export class UsersController {
   }
 
   @Roles(Role.ADMIN)
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create a user with any role, including ADMIN (admin)',
+    description:
+      'The account is created verified; the password is emailed to the user. Authors created this way are approved at once.',
+  })
+  @ApiResponse({ status: 201, type: UserResponseDto })
+  @ApiResponse({ status: 409, description: 'EMAIL_TAKEN' })
+  createUser(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
+    return this.usersService.createByAdmin(dto);
+  }
+
+  @Roles(Role.ADMIN)
   @Get(':id')
   @ApiOperation({ summary: 'Get user by id (admin)' })
   @ApiResponse({ status: 200, type: UserResponseDto })
@@ -111,6 +127,18 @@ export class UsersController {
     @Body() dto: AdminResetPasswordDto,
   ): Promise<void> {
     return this.usersService.resetPasswordByAdmin(id, dto);
+  }
+
+  @Roles(Role.ADMIN)
+  @Patch(':id/verify-email')
+  @ApiOperation({
+    summary: 'Mark the user email as confirmed (admin)',
+    description:
+      'For accounts whose confirmation email never arrived. Pending confirmation links are invalidated.',
+  })
+  @ApiResponse({ status: 200, type: UserResponseDto })
+  verifyEmail(@Param('id') id: string): Promise<UserResponseDto> {
+    return this.usersService.verifyEmailByAdmin(id);
   }
 
   @Roles(Role.ADMIN)

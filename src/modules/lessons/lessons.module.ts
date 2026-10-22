@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { VectorModule } from '../vector/vector.module';
 import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
-import { MaterialAccessGuard } from '../../common/guards/material-access.guard';
+import { LessonMediaGuard } from '../../common/guards/lesson-media.guard';
 import { SubscriptionGuard } from '../../common/guards/subscription.guard';
 import { CoursesModule } from '../courses/courses.module';
 import { MediaModule } from '../media/media.module';
@@ -12,6 +12,7 @@ import { LessonsController } from './lessons.controller';
 import { LessonsService } from './lessons.service';
 import { MaterialsController } from './materials.controller';
 import { PrismaLessonsRepository } from './prisma-lessons.repository';
+import { VideoStreamController } from './video-stream.controller';
 import { VideosController } from './videos.controller';
 
 @Module({
@@ -20,12 +21,13 @@ import { VideosController } from './videos.controller';
     CourseLessonsController,
     LessonsController,
     VideosController,
+    VideoStreamController,
     MaterialsController,
   ],
   providers: [
     LessonsService,
     LessonOwnerGuard,
-    MaterialAccessGuard,
+    LessonMediaGuard,
     SubscriptionGuard,
     {
       provide: LESSONS_REPOSITORY,

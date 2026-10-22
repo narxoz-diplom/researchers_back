@@ -1,4 +1,5 @@
 import {
+  AuthorStatus,
   CourseEnrollmentStatus,
   CourseStatus,
   PrismaClient,
@@ -39,14 +40,23 @@ const USERS: SeedUser[] = [
 
 async function upsertUser(data: SeedUser): Promise<string> {
   const passwordHash = await bcrypt.hash(data.password, 12);
+  // Demo authors are trusted: approved without going through the public offer.
+  const authorStatus = data.role === Role.AUTHOR ? AuthorStatus.APPROVED : null;
   const user = await prisma.user.upsert({
     where: { email: data.email },
-    update: { passwordHash, role: data.role, fullName: data.fullName, emailVerified: true },
+    update: {
+      passwordHash,
+      role: data.role,
+      authorStatus,
+      fullName: data.fullName,
+      emailVerified: true,
+    },
     create: {
       email: data.email,
       passwordHash,
       fullName: data.fullName,
       role: data.role,
+      authorStatus,
       emailVerified: true,
     },
   });

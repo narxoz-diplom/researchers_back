@@ -10,6 +10,12 @@ export class LandingSectionDto {
   @ApiProperty({ type: [String] })
   points: string[];
 
+  @ApiProperty({ description: 'Kazakh description' })
+  descriptionKk: string;
+
+  @ApiProperty({ type: [String], description: 'Kazakh bullet points' })
+  pointsKk: string[];
+
   @ApiProperty()
   updatedAt: Date;
 }

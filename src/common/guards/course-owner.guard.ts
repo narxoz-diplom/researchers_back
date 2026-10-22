@@ -10,14 +10,17 @@ import { Role } from '@prisma/client';
 import { Request } from 'express';
 import { COURSES_REPOSITORY } from '../../modules/courses/courses.constants';
 import type { ICoursesRepository } from '../../modules/courses/courses.repository.interface';
+import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayloadUser } from '../decorators/current-user.decorator';
 import { ErrorCode } from '../errors/error-codes';
+import { assertApprovedAuthor } from './author-approval';
 
 @Injectable()
 export class CourseOwnerGuard implements CanActivate {
   constructor(
     @Inject(COURSES_REPOSITORY)
     private readonly coursesRepository: ICoursesRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -33,6 +36,9 @@ export class CourseOwnerGuard implements CanActivate {
     if (user.role === Role.ADMIN) {
       return true;
     }
+
+    // A revoked or not yet approved author cannot change even their own courses.
+    await assertApprovedAuthor(this.prisma, user);
 
     const rawId =
       request.params.id ??

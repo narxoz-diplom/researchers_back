@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CourseStatus, Role } from '@prisma/client';
+import { CourseEnrollmentStatus, CourseStatus, Role } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { isCourseSectionCategory } from '../../common/constants/course-categories';
 import { ErrorCode } from '../../common/errors/error-codes';
@@ -35,6 +37,7 @@ export class CoursesService {
     private readonly enrollmentsService: EnrollmentsService,
     private readonly mediaService: MediaService,
     private readonly lessonIndexService: LessonIndexService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async listCatalog(query: ListCoursesQueryDto): Promise<PagedCoursesDto> {
@@ -93,13 +96,16 @@ export class CoursesService {
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
       category: dto.category,
-      ratingAvg: dto.ratingAvg,
-      ratingCount: dto.ratingCount,
+      ...ratingFor(user, dto),
     });
     return toCourseListItemFromAuthorCourse(course);
   }
 
-  async update(id: string, dto: UpdateCourseDto): Promise<CourseListItemDto> {
+  async update(
+    id: string,
+    dto: UpdateCourseDto,
+    user: JwtPayloadUser,
+  ): Promise<CourseListItemDto> {
     const existing = await this.coursesRepository.findById(id);
     if (!existing) {
       throw new NotFoundException('Course not found');
@@ -111,8 +117,7 @@ export class CoursesService {
       coverUrl: dto.coverUrl,
       priceCents: dto.priceCents,
       category: dto.category,
-      ratingAvg: dto.ratingAvg,
-      ratingCount: dto.ratingCount,
+      ...ratingFor(user, dto),
     });
 
     return toCourseListItemFromAuthorCourse(course, existing.lessons.length);
@@ -134,6 +139,23 @@ export class CoursesService {
     const existing = await this.coursesRepository.findById(id);
     if (!existing) {
       throw new NotFoundException('Course not found');
+    }
+
+    // Paid enrollments are the record of money received; such a course is archived instead.
+    const paidEnrollments = await this.prisma.courseEnrollment.count({
+      where: {
+        courseId: id,
+        status: {
+          in: [
+            CourseEnrollmentStatus.PAID,
+            CourseEnrollmentStatus.UNDERPAID,
+            CourseEnrollmentStatus.APPROVED,
+          ],
+        },
+      },
+    });
+    if (paidEnrollments > 0) {
+      throw new ConflictException(ErrorCode.COURSE_HAS_PAID_ENROLLMENTS);
     }
 
     const publicIds =
@@ -192,4 +214,13 @@ export class CoursesService {
 
     return false;
   }
+}
+
+/** Ratings are curated by admins; authors cannot set their own. */
+function ratingFor(
+  user: JwtPayloadUser,
+  dto: { ratingAvg?: number; ratingCount?: number },
+): { ratingAvg?: number; ratingCount?: number } {
+  if (user.role !== Role.ADMIN) return {};
+  return { ratingAvg: dto.ratingAvg, ratingCount: dto.ratingCount };
 }

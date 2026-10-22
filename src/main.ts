@@ -2,30 +2,16 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { setupUploadsStatic } from './common/static-uploads';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
 
-  const uploadsDir = join(process.cwd(), 'uploads');
-  if (!existsSync(uploadsDir)) {
-    try {
-      mkdirSync(uploadsDir, { recursive: true });
-    } catch (err) {
-      Logger.warn(
-        `Could not create uploads directory at ${uploadsDir}: ${err instanceof Error ? err.message : err}`,
-        'Bootstrap',
-      );
-    }
-  }
-  if (existsSync(uploadsDir)) {
-    app.useStaticAssets(uploadsDir, { prefix: '/api/v1/media/files/' });
-  }
+  setupUploadsStatic(app);
 
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

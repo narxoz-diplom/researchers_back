@@ -1,7 +1,11 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-export type EnrollmentTelegramEvent = 'request' | 'resubmit' | 'purchase';
+export type EnrollmentTelegramEvent =
+  | 'request'
+  | 'resubmit'
+  | 'purchase'
+  | 'cancel';
 
 export interface EnrollmentTelegramPayload {
   email: string;
@@ -68,12 +72,40 @@ export class TelegramService implements OnModuleInit {
     );
   }
 
+  async notifyAuthorApplication(payload: {
+    email: string;
+    fullName: string;
+    legalName: string;
+    submittedAt: Date;
+    resubmitted: boolean;
+  }): Promise<void> {
+    const title = payload.resubmitted
+      ? 'Повторная заявка автора — проверьте оферту'
+      : 'Новый автор принял оферту';
+    const text = [
+      `🧑‍🏫 <b>${this.escapeHtml(title)}</b>`,
+      '',
+      `👤 <b>Имя:</b> ${this.escapeHtml(payload.fullName)}`,
+      `📄 <b>По оферте:</b> ${this.escapeHtml(payload.legalName)}`,
+      `✉️ <b>Email:</b> ${this.escapeHtml(payload.email)}`,
+      `🕐 <b>Дата:</b> ${this.escapeHtml(this.formatDate(payload.submittedAt))}`,
+      '',
+      payload.resubmitted
+        ? 'Решение — в админке: «Авторы».'
+        : 'Автор уже может создавать курсы. Отозвать доступ можно в админке: «Авторы».',
+    ].join('\n');
+
+    await this.sendMessage(text, `${title} — ${payload.email}`);
+  }
+
   private titleForEvent(event: EnrollmentTelegramEvent): string {
     switch (event) {
       case 'purchase':
         return 'Оплата Kaspi QR — проверьте';
       case 'resubmit':
         return 'Повторная заявка на курс';
+      case 'cancel':
+        return 'Клиент отменил заявку на курс';
       default:
         return 'Новая заявка на курс';
     }

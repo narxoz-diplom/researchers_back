@@ -17,6 +17,7 @@ import { Role } from '@prisma/client';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { JwtPayloadUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { AllowPendingAuthor } from '../../common/decorators/allow-pending-author.decorator';
 import { ApiCommonErrors } from '../../common/decorators/api-error-responses.decorator';
 import { AuthorAiSettingsService } from './author-ai-settings.service';
 import { AuthorAiSettingsResponseDto } from './dto/ai-settings.dto';
@@ -25,6 +26,8 @@ import { UpdateAuthorAiSettingsDto } from './dto/update-ai-settings.dto';
 @ApiTags('ai')
 @ApiBearerAuth()
 @Controller('users/me/ai-settings')
+// Profile settings stay available while the author offer is under review.
+@AllowPendingAuthor()
 export class MeAiSettingsController {
   constructor(private readonly authorAiSettings: AuthorAiSettingsService) {}
 

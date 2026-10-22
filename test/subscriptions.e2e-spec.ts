@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { GlobalExceptionFilter } from './../src/common/filters/global-exception.filter';
+import { registerVerified } from './helpers';
 
 describe('Subscriptions (e2e)', () => {
   let app: INestApplication<App>;
@@ -37,14 +38,12 @@ describe('Subscriptions (e2e)', () => {
     adminToken = (adminLogin.body as { accessToken: string }).accessToken;
 
     const authorEmail = `sub-author-${Date.now()}@test.local`;
-    const authorRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: authorEmail,
-        password: 'Password1!',
-        fullName: 'Sub Author',
-        role: 'AUTHOR',
-      });
+    const authorRegister = await registerVerified(app, {
+      email: authorEmail,
+      password: 'Password1!',
+      fullName: 'Sub Author',
+      role: 'AUTHOR',
+    });
     const authorUserId = (authorRegister.body as { user: { id: string } }).user
       .id;
 
@@ -58,14 +57,12 @@ describe('Subscriptions (e2e)', () => {
       .send({ email: authorEmail, password: 'Password1!' });
     authorToken = (authorLogin.body as { accessToken: string }).accessToken;
 
-    const subRegister = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email: `sub-user-${Date.now()}@test.local`,
-        password: 'Password1!',
-        fullName: 'Sub User',
-        role: 'SUBSCRIBER',
-      });
+    const subRegister = await registerVerified(app, {
+      email: `sub-user-${Date.now()}@test.local`,
+      password: 'Password1!',
+      fullName: 'Sub User',
+      role: 'SUBSCRIBER',
+    });
     subscriberId = (subRegister.body as { user: { id: string } }).user.id;
     subscriberToken = (subRegister.body as { accessToken: string }).accessToken;
 
@@ -82,7 +79,12 @@ describe('Subscriptions (e2e)', () => {
     const lessonRes = await request(app.getHttpServer())
       .post(`/api/v1/courses/${courseId}/lessons`)
       .set('Authorization', `Bearer ${authorToken}`)
-      .send({ title: 'Lesson 1', content: 'Premium content', orderNumber: 1 });
+      .send({
+        isPublished: true,
+        title: 'Lesson 1',
+        content: 'Premium content',
+        orderNumber: 1,
+      });
     lessonId = (lessonRes.body as { id: string }).id;
   });
 
@@ -106,7 +108,9 @@ describe('Subscriptions (e2e)', () => {
       .expect(403);
   });
 
-  it('admin grants subscription and subscriber gets access', async () => {
+  // Since per-course payments, lesson content is unlocked only by an approved
+  // course enrollment; an admin-granted subscription alone does not open it.
+  it('admin grants subscription; paid content stays locked', async () => {
     const grantRes = await request(app.getHttpServer())
       .post('/api/v1/admin/subscriptions/grant')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -130,7 +134,7 @@ describe('Subscriptions (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/api/v1/lessons/${lessonId}`)
       .set('Authorization', `Bearer ${subscriberToken}`)
-      .expect(200);
+      .expect(403);
   });
 
   it('revoke removes access immediately', async () => {

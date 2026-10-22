@@ -26,7 +26,9 @@ describe('Health (e2e)', () => {
     return request(app.getHttpServer())
       .get('/api/v1/health')
       .expect(200)
-      .expect({ status: 'ok' });
+      .expect((res) => {
+        expect(res.body).toMatchObject({ status: 'ok' });
+      });
   });
 
   afterEach(async () => {

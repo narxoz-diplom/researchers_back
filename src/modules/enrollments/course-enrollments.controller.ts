@@ -26,6 +26,7 @@ import {
 import { RequestEnrollmentDto } from './dto/request-enrollment.dto';
 import { SubmitPaymentDto } from './dto/submit-payment.dto';
 import { RequestMorePaymentDto } from './dto/request-more-payment.dto';
+import { AdjustAmountDto } from './dto/adjust-amount.dto';
 import { EnrollmentsService } from './enrollments.service';
 
 @ApiTags('enrollments')
@@ -58,6 +59,22 @@ export class CourseEnrollmentsController {
     @Body() dto: SubmitPaymentDto,
   ): Promise<MyEnrollmentDto> {
     return this.enrollmentsService.purchase(courseId, user, dto);
+  }
+
+  @Roles(Role.SUBSCRIBER)
+  @HttpCode(HttpStatus.OK)
+  @Post('cancel')
+  @ApiOperation({
+    summary:
+      'Withdraw my request or submitted payment (before access is granted)',
+  })
+  @ApiResponse({ status: 200, type: MyEnrollmentDto })
+  @ApiResponse({ status: 400, description: 'ENROLLMENT_INVALID_STATUS' })
+  cancel(
+    @Param('courseId') courseId: string,
+    @CurrentUser() user: JwtPayloadUser,
+  ): Promise<MyEnrollmentDto> {
+    return this.enrollmentsService.cancel(courseId, user);
   }
 
   @Roles(Role.AUTHOR, Role.ADMIN)
@@ -99,6 +116,31 @@ export class CourseEnrollmentsController {
     @Body() dto: RequestMorePaymentDto,
   ): Promise<CourseEnrollmentDto> {
     return this.enrollmentsService.requestMorePayment(
+      courseId,
+      enrollmentId,
+      user,
+      dto,
+    );
+  }
+
+  @Roles(Role.AUTHOR, Role.ADMIN)
+  @UseGuards(CourseOwnerGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post(':enrollmentId/adjust-amount')
+  @ApiOperation({
+    summary:
+      'Record the amount that actually arrived (differs from what the student declared)',
+    description:
+      'Allowed for PAID and UNDERPAID. If the corrected total covers the price the request becomes PAID (reviewable); the correction is journaled.',
+  })
+  @ApiResponse({ status: 200, type: CourseEnrollmentDto })
+  adjustAmount(
+    @Param('courseId') courseId: string,
+    @Param('enrollmentId') enrollmentId: string,
+    @CurrentUser() user: JwtPayloadUser,
+    @Body() dto: AdjustAmountDto,
+  ): Promise<CourseEnrollmentDto> {
+    return this.enrollmentsService.adjustAmount(
       courseId,
       enrollmentId,
       user,

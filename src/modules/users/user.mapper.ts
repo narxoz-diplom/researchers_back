@@ -7,6 +7,8 @@ export function toUserResponse(user: User): UserResponseDto {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
+    emailVerified: user.emailVerified,
+    ...(user.authorStatus ? { authorStatus: user.authorStatus } : {}),
     createdAt: user.createdAt.toISOString(),
     ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
   };

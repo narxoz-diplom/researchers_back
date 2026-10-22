@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Role, User } from '@prisma/client';
+import { AuthorStatus, Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface CreateUserInput {
@@ -8,6 +8,7 @@ export interface CreateUserInput {
   fullName: string;
   role?: Role;
   emailVerified?: boolean;
+  authorStatus?: AuthorStatus | null;
 }
 
 export interface ListUsersParams {
@@ -49,6 +50,7 @@ export class UsersRepository {
         fullName: data.fullName,
         role: data.role ?? Role.SUBSCRIBER,
         emailVerified: data.emailVerified ?? false,
+        authorStatus: data.authorStatus ?? null,
       },
     });
   }
@@ -58,6 +60,15 @@ export class UsersRepository {
       where: { id },
       data: { emailVerified: true },
     });
+  }
+
+  /** Admin confirms the address by hand; pending confirmation links stop working. */
+  async verifyEmailByAdmin(id: string): Promise<User> {
+    const [, user] = await this.prisma.$transaction([
+      this.prisma.emailVerificationToken.deleteMany({ where: { userId: id } }),
+      this.prisma.user.update({ where: { id }, data: { emailVerified: true } }),
+    ]);
+    return user;
   }
 
   updateProfile(id: string, data: UpdateProfileInput): Promise<User> {
@@ -91,10 +102,14 @@ export class UsersRepository {
     });
   }
 
-  updateRole(id: string, role: Role): Promise<User> {
+  updateRole(
+    id: string,
+    role: Role,
+    authorStatus: AuthorStatus | null,
+  ): Promise<User> {
     return this.prisma.user.update({
       where: { id },
-      data: { role },
+      data: { role, authorStatus },
     });
   }
 

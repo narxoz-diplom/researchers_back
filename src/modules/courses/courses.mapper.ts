@@ -59,7 +59,9 @@ function toLessonSummary(
     isPublished: lesson.isPublished,
   };
 
-  if (!hasAccess && !lesson.isPublished) {
+  // Lesson content is paid: the program (titles) is public, the rest needs access.
+  // File links are never part of the course page; GET /lessons/:id issues them per viewer.
+  if (!hasAccess) {
     return base;
   }
 
@@ -69,7 +71,6 @@ function toLessonSummary(
     videos: lesson.videos.map((v) => ({
       id: v.id,
       title: v.title,
-      url: v.url,
       durationSeconds: v.durationSeconds,
       orderNumber: v.orderNumber,
       source: v.source,
@@ -78,7 +79,6 @@ function toLessonSummary(
     materials: lesson.materials.map((m) => ({
       id: m.id,
       title: m.title,
-      url: m.url,
       mimeType: m.mimeType,
     })),
   };

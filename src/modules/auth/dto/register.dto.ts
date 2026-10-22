@@ -1,6 +1,15 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { IsEmail, IsIn, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { AuthorApplicationDto } from '../../authors/dto/author-application.dto';
 
 export class RegisterDto {
   @ApiProperty({ example: 'student@example.com' })
@@ -23,4 +32,13 @@ export class RegisterDto {
   })
   @IsIn([Role.SUBSCRIBER, Role.AUTHOR], { message: 'FORBIDDEN_ROLE' })
   role: Role;
+
+  @ApiPropertyOptional({
+    type: AuthorApplicationDto,
+    description: 'Required for AUTHOR: details of the accepted public offer',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AuthorApplicationDto)
+  authorApplication?: AuthorApplicationDto;
 }

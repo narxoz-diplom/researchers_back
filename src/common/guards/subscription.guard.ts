@@ -6,7 +6,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Role, CourseStatus } from '@prisma/client';
+import { Role } from '@prisma/client';
 import { Request } from 'express';
 import { LESSONS_REPOSITORY } from '../../modules/lessons/lessons.constants';
 import type { ILessonsRepository } from '../../modules/lessons/lessons.repository.interface';
@@ -39,12 +39,10 @@ export class SubscriptionGuard implements CanActivate {
       throw new NotFoundException('Lesson not found');
     }
 
-    if (lesson.isPublished && lesson.course.status === CourseStatus.PUBLISHED) {
-      return true;
-    }
-
+    // Published = listed in the course program. The content itself is paid:
+    // only the author, admins and students with an approved enrollment read it.
     if (!user) {
-      throw new ForbiddenException();
+      throw new ForbiddenException(ErrorCode.SUBSCRIPTION_REQUIRED);
     }
 
     if (user.role === Role.ADMIN) {

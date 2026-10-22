@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { GlobalExceptionFilter } from './../src/common/filters/global-exception.filter';
+import { registerVerified, SEED_ADMIN_EMAIL, tokensFor } from './helpers';
 
 describe('Users (e2e)', () => {
   let app: INestApplication<App>;
@@ -33,14 +34,12 @@ describe('Users (e2e)', () => {
     adminToken = (adminLogin.body as { accessToken: string }).accessToken;
 
     const email = `users-${Date.now()}@test.local`;
-    const register = await request(app.getHttpServer())
-      .post('/api/v1/auth/register')
-      .send({
-        email,
-        password: 'Password1!',
-        fullName: 'Users Test',
-        role: 'SUBSCRIBER',
-      });
+    const register = await registerVerified(app, {
+      email,
+      password: 'Password1!',
+      fullName: 'Users Test',
+      role: 'SUBSCRIBER',
+    });
     userToken = (register.body as { accessToken: string }).accessToken;
     userId = (register.body as { user: { id: string } }).user.id;
   });
@@ -137,12 +136,173 @@ describe('Users (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const admin = (admins.body as { data: { id: string }[] }).data[0];
+    const admin = (
+      admins.body as { data: { id: string; email: string }[] }
+    ).data.find((a) => a.email === SEED_ADMIN_EMAIL)!;
 
     await request(app.getHttpServer())
       .patch(`/api/v1/users/${admin.id}/role`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ role: 'SUBSCRIBER' })
       .expect(409);
+  });
+
+  describe('email confirmation', () => {
+    const email = `unverified-${Date.now()}@test.local`;
+
+    it('without SMTP the signup returns the confirmation link for local testing', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          email,
+          password: 'Password1!',
+          fullName: 'Not Yet',
+          role: 'SUBSCRIBER',
+        })
+        .expect(201);
+      const body = res.body as { message: string; devVerifyUrl?: string };
+      expect(body.message).toBe('CHECK_EMAIL');
+      expect(body.devVerifyUrl).toMatch(/\/auth\/verify-email\?token=/);
+
+      const resent = await request(app.getHttpServer())
+        .post('/api/v1/auth/resend-verification')
+        .send({ email })
+        .expect(200);
+      expect(
+        (resent.body as { devVerifyUrl?: string }).devVerifyUrl,
+      ).toBeTruthy();
+    });
+
+    it('an admin can confirm the email by hand; the user can then sign in', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email, password: 'Password1!' })
+        .expect(401);
+
+      const list = await request(app.getHttpServer())
+        .get(`/api/v1/users?search=${email}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const row = (
+        list.body as { data: { id: string; emailVerified: boolean }[] }
+      ).data[0];
+      expect(row.emailVerified).toBe(false);
+
+      const verified = await request(app.getHttpServer())
+        .patch(`/api/v1/users/${row.id}/verify-email`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect((verified.body as { emailVerified: boolean }).emailVerified).toBe(
+        true,
+      );
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email, password: 'Password1!' })
+        .expect(200);
+      await request(app.getHttpServer())
+        .patch(`/api/v1/users/${row.id}/verify-email`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
+    });
+  });
+
+  describe('admins add other admins', () => {
+    const email = `new-admin-${Date.now()}@test.local`;
+    let newAdminId: string;
+
+    it('POST /users creates a verified admin account', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          email,
+          fullName: 'Second Admin',
+          password: 'AdminPass123!',
+          role: 'ADMIN',
+        })
+        .expect(201);
+      const body = res.body as { id: string; role: string; email: string };
+      expect(body.role).toBe('ADMIN');
+      expect(body.email).toBe(email);
+      newAdminId = body.id;
+
+      // Same email twice is refused.
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          email,
+          fullName: 'Dup',
+          password: 'AdminPass123!',
+          role: 'ADMIN',
+        })
+        .expect(409);
+    });
+
+    it('the new admin can sign in without email confirmation and manage users', async () => {
+      const login = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email, password: 'AdminPass123!' })
+        .expect(200);
+      const token = (login.body as { accessToken: string }).accessToken;
+
+      await request(app.getHttpServer())
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      // With two admins the seeded one is no longer "the last" and can be removed by the other.
+      const seeded = await tokensFor(app, SEED_ADMIN_EMAIL);
+      expect(seeded.user.role).toBe('ADMIN');
+    });
+
+    it('promoting an existing user to ADMIN and back works', async () => {
+      const promoted = await request(app.getHttpServer())
+        .patch(`/api/v1/users/${userId}/role`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ role: 'ADMIN' })
+        .expect(200);
+      expect((promoted.body as { role: string }).role).toBe('ADMIN');
+
+      const demoted = await request(app.getHttpServer())
+        .patch(`/api/v1/users/${userId}/role`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ role: 'SUBSCRIBER' })
+        .expect(200);
+      expect((demoted.body as { role: string }).role).toBe('SUBSCRIBER');
+    });
+
+    it('non-admins cannot create accounts; validation guards the payload', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          email: `x-${Date.now()}@test.local`,
+          fullName: 'X',
+          password: 'AdminPass123!',
+          role: 'ADMIN',
+        })
+        .expect(403);
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          email: 'not-an-email',
+          fullName: 'X',
+          password: 'short',
+          role: 'ADMIN',
+        })
+        .expect(400);
+    });
+
+    afterAll(async () => {
+      if (newAdminId) {
+        await request(app.getHttpServer())
+          .delete(`/api/v1/users/${newAdminId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(204);
+      }
+    });
   });
 });
