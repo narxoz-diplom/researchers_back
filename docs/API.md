@@ -47,6 +47,10 @@ Auth header: `Authorization: Bearer <accessToken>`
 - `POST /auth/logout` — JWT
 - `GET /auth/me` — JWT
 
+### Admin diagnostics
+- `POST /admin/mail/test` — ADMIN: sends a test mail to the admin's own address; 503 `MAIL_NOT_CONFIGURED` without SMTP, 502 `MAIL_DELIVERY_FAILED` (+ `detail`) when the SMTP server refuses
+- `GET /health` also reports `checks.mail` = `ok` | `not_configured`
+
 ### Users
 - `GET /users/me` — JWT
 - `PATCH /users/me` — JWT

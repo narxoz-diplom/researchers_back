@@ -73,6 +73,39 @@ export class MailService implements OnModuleInit {
     return this.transporter !== null;
   }
 
+  /** Short description of the transport for diagnostics (no password). */
+  describeTransport(): string {
+    const host = this.configService.get<string>('SMTP_HOST') ?? '';
+    const port = this.configService.get<string>('SMTP_PORT', '587');
+    const user = this.configService.get<string>('SMTP_USER') ?? '';
+    return `${host}:${port} as ${user}, from ${this.fromAddress}`;
+  }
+
+  /**
+   * Admin diagnostics: one real delivery through the configured SMTP. Returns
+   * the server's answer or throws with the SMTP error, so a broken password,
+   * blocked port or unverified sender shows up in the UI instead of a lost mail.
+   */
+  async sendTestEmail(
+    to: string,
+  ): Promise<{ messageId?: string; response?: string }> {
+    if (!this.transporter) {
+      throw new Error('SMTP is not configured');
+    }
+    const subject = 'Тестовое письмо — Researchers.kz';
+    const text = [
+      'Это тестовое письмо от платформы Researchers.kz.',
+      `Транспорт: ${this.describeTransport()}`,
+      'Если вы его получили — отправка почты с сервера работает.',
+    ].join('\n');
+    return this.deliver(
+      to,
+      subject,
+      text,
+      `<p>${this.escapeHtml(text).replaceAll('\n', '<br>')}</p>`,
+    );
+  }
+
   async sendVerificationEmail(
     payload: VerificationEmailPayload,
   ): Promise<void> {
@@ -285,9 +318,9 @@ export class MailService implements OnModuleInit {
     subject: string,
     text: string,
     html: string,
-  ): Promise<void> {
+  ): Promise<{ messageId?: string; response?: string }> {
     if (!this.transporter) {
-      return;
+      return {};
     }
     try {
       const info = (await this.transporter.sendMail({
@@ -300,6 +333,7 @@ export class MailService implements OnModuleInit {
       this.logger.log(
         `Mail sent to ${to} (${subject}) messageId=${info.messageId ?? '?'} ${info.response ?? ''}`.trim(),
       );
+      return info;
     } catch (error) {
       this.logger.error(
         `Mail to ${to} (${subject}) failed: ${error instanceof Error ? error.message : String(error)}`,

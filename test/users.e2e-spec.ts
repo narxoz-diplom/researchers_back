@@ -207,6 +207,29 @@ describe('Users (e2e)', () => {
     });
   });
 
+  describe('mail diagnostics', () => {
+    it('admin test mail reports that SMTP is not configured; others are refused', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/admin/mail/test')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(503);
+      expect((res.body as { message: string }).message).toBe(
+        'MAIL_NOT_CONFIGURED',
+      );
+      await request(app.getHttpServer())
+        .post('/api/v1/admin/mail/test')
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
+
+      const health = await request(app.getHttpServer())
+        .get('/api/v1/health')
+        .expect(200);
+      expect((health.body as { checks: { mail: string } }).checks.mail).toBe(
+        'not_configured',
+      );
+    });
+  });
+
   describe('admins add other admins', () => {
     const email = `new-admin-${Date.now()}@test.local`;
     let newAdminId: string;

@@ -1,7 +1,9 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthorStatus, Role } from '@prisma/client';
@@ -29,6 +31,8 @@ const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly prisma: PrismaService,
@@ -75,7 +79,18 @@ export class AuthService {
       },
     });
 
-    const verifyUrl = await this.sendVerificationEmail(user);
+    // The account exists from here on; a refused mail must not turn into a 500
+    // that leaves the user unable to retry. They can resend from the next page.
+    let verifyUrl = '';
+    let mailFailed = false;
+    try {
+      verifyUrl = await this.sendVerificationEmail(user);
+    } catch (error) {
+      mailFailed = true;
+      this.logger.error(
+        `Verification mail for ${user.email} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
     if (application) {
       this.authorsService.notifyNewApplication(
         user,
@@ -87,7 +102,8 @@ export class AuthService {
     return {
       message: 'CHECK_EMAIL',
       email: user.email,
-      ...this.devVerifyUrl(verifyUrl),
+      ...(verifyUrl ? this.devVerifyUrl(verifyUrl) : {}),
+      ...(mailFailed ? { mailFailed: true } : {}),
     };
   }
 
@@ -148,7 +164,20 @@ export class AuthService {
       return { message: 'VERIFICATION_SENT' };
     }
 
-    const verifyUrl = await this.sendVerificationEmail(user);
+    let verifyUrl: string;
+    try {
+      verifyUrl = await this.sendVerificationEmail(user);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Verification mail for ${user.email} failed: ${detail}`,
+      );
+      throw new BadGatewayException({
+        statusCode: 502,
+        message: ErrorCode.MAIL_DELIVERY_FAILED,
+        detail,
+      });
+    }
     return { message: 'VERIFICATION_SENT', ...this.devVerifyUrl(verifyUrl) };
   }
 

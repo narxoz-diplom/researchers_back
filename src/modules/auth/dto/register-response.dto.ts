@@ -12,6 +12,12 @@ export class RegisterResponseDto {
 
   @ApiPropertyOptional({ description: DEV_VERIFY_URL_DESCRIPTION })
   devVerifyUrl?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'True when the account was created but the SMTP server refused the confirmation mail (use resend or ask an admin).',
+  })
+  mailFailed?: boolean;
 }
 
 export class VerificationSentResponseDto {
