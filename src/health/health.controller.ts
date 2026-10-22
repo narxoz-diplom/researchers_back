@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
+import { MailService } from '../modules/mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type HealthStatus = 'ok' | 'degraded' | 'down';
@@ -16,13 +17,18 @@ interface HealthCheckResponse {
   uptimeSec: number;
   checks: {
     database: 'ok' | 'down';
+    /** Without SMTP the API only logs confirmation and password mails instead of sending them. */
+    mail: 'ok' | 'not_configured';
   };
 }
 
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   @Public()
   @Get()
@@ -39,7 +45,10 @@ export class HealthController {
     const response: HealthCheckResponse = {
       status: database === 'ok' ? 'ok' : 'down',
       uptimeSec: Math.floor(process.uptime()),
-      checks: { database },
+      checks: {
+        database,
+        mail: this.mailService.isConfigured() ? 'ok' : 'not_configured',
+      },
     };
 
     if (response.status !== 'ok') {

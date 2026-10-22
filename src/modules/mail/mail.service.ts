@@ -108,13 +108,7 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    await this.transporter.sendMail({
-      from: this.fromAddress,
-      to: payload.to,
-      subject,
-      text,
-      html,
-    });
+    await this.deliver(payload.to, subject, text, html);
   }
 
   async sendPasswordResetByAdminEmail(
@@ -151,13 +145,7 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    await this.transporter.sendMail({
-      from: this.fromAddress,
-      to: payload.to,
-      subject,
-      text,
-      html,
-    });
+    await this.deliver(payload.to, subject, text, html);
   }
 
   async sendAccountCreatedByAdminEmail(
@@ -204,13 +192,7 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    await this.transporter.sendMail({
-      from: this.fromAddress,
-      to: payload.to,
-      subject,
-      text,
-      html,
-    });
+    await this.deliver(payload.to, subject, text, html);
   }
 
   async sendLessonIndexFailedEmail(
@@ -245,13 +227,7 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    await this.transporter.sendMail({
-      from: this.fromAddress,
-      to: payload.to,
-      subject,
-      text,
-      html,
-    });
+    await this.deliver(payload.to, subject, text, html);
   }
 
   async sendAuthorDecisionEmail(payload: {
@@ -300,13 +276,36 @@ export class MailService implements OnModuleInit {
       return;
     }
 
-    await this.transporter.sendMail({
-      from: this.fromAddress,
-      to: payload.to,
-      subject,
-      text,
-      html,
-    });
+    await this.deliver(payload.to, subject, text, html);
+  }
+
+  /** Sends through SMTP and logs the outcome, so production logs show deliveries and SMTP errors. */
+  private async deliver(
+    to: string,
+    subject: string,
+    text: string,
+    html: string,
+  ): Promise<void> {
+    if (!this.transporter) {
+      return;
+    }
+    try {
+      const info = (await this.transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject,
+        text,
+        html,
+      })) as { messageId?: string; response?: string };
+      this.logger.log(
+        `Mail sent to ${to} (${subject}) messageId=${info.messageId ?? '?'} ${info.response ?? ''}`.trim(),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Mail to ${to} (${subject}) failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   private escapeHtml(value: string): string {
