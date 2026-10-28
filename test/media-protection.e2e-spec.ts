@@ -400,6 +400,23 @@ describe('Lesson media is view-only on the site (e2e)', () => {
     expect(authorId).toBeTruthy();
   });
 
+  it('delivery diagnostics for a material are admin-only and report each path', async () => {
+    const report = await http()
+      .get(`/api/v1/materials/${materialId}/diagnose`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const body = report.body as Record<string, string>;
+    expect(body.cloudinaryConfigured).toBe('false');
+    expect(body.publicId).toBeTruthy();
+    expect(body.direct).toMatch(/^HTTP|^ERROR|^skipped/);
+
+    await http()
+      .get(`/api/v1/materials/${materialId}/diagnose`)
+      .set('Authorization', `Bearer ${authorToken}`)
+      .expect(403);
+    await http().get(`/api/v1/materials/${materialId}/diagnose`).expect(401);
+  });
+
   it('a DOCX material is rendered as HTML for reading on the page', async () => {
     const student = await approvedStudent();
     // A one-paragraph .docx assembled by hand (see zipStored below).

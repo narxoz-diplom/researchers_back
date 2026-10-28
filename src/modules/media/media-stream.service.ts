@@ -204,7 +204,75 @@ export class MediaStreamService {
       res.off('close', abort);
     }
 
-    throw new NotFoundException(`Media unavailable (${lastStatus || 404})`);
+    // Cloudinary refuses direct delivery of PDF/raw files on many accounts (401),
+    // even with signed URLs; the Admin API download still works, so serve the
+    // material from a buffer. Videos are left to the CDN: they stream fine and
+    // would not fit in memory anyway.
+    if (
+      source.resourceType === UploadResourceType.RAW &&
+      source.publicId &&
+      this.mediaService.isCloudinaryConfigured() &&
+      !res.headersSent
+    ) {
+      const buffer = await this.mediaService
+        .downloadForIndexing(
+          source.publicId,
+          source.resourceType,
+          source.storedUrl,
+          source.mimeType,
+        )
+        .catch((error: unknown) => {
+          this.logger.warn(
+            `Admin API download failed publicId=${source.publicId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        });
+      if (buffer) {
+        this.sendBuffer(req, res, buffer, source);
+        return;
+      }
+    }
+
+    throw new NotFoundException({
+      statusCode: 404,
+      message: 'MEDIA_UNAVAILABLE',
+      detail: `upstream ${lastStatus || 'unreachable'}`,
+    });
+  }
+
+  /** Whole file already in memory: answer the request (with ranges) from it. */
+  private sendBuffer(
+    req: Request,
+    res: Response,
+    buffer: Buffer,
+    source: StreamSource,
+  ): void {
+    const size = buffer.length;
+    this.setViewerHeaders(res, source);
+    res.setHeader('Content-Type', source.mimeType);
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    const range = parseRange(req.headers.range, size);
+    if (range === 'invalid') {
+      res.status(416);
+      res.setHeader('Content-Range', `bytes */${size}`);
+      res.end();
+      return;
+    }
+    const start = range ? range.start : 0;
+    const end = range ? range.end : size - 1;
+    if (range) {
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+    } else {
+      res.status(200);
+    }
+    res.setHeader('Content-Length', String(size === 0 ? 0 : end - start + 1));
+    if (req.method === 'HEAD' || size === 0) {
+      res.end();
+      return;
+    }
+    res.end(buffer.subarray(start, end + 1));
   }
 
   /** The stored URL first (what played before), then signed Cloudinary deliveries. */

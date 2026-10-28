@@ -19,7 +19,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { Role } from '@prisma/client';
 import { MediaKind } from '../../common/decorators/media-kind.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { LessonMediaGuard } from '../../common/guards/lesson-media.guard';
 import { LessonOwnerGuard } from '../../common/guards/lesson-owner.guard';
@@ -91,6 +93,17 @@ export class MaterialsController {
       type: mimeType,
       disposition: contentDispositionAttachment(filename),
     });
+  }
+
+  @Roles(Role.ADMIN)
+  @Get(':id/diagnose')
+  @ApiOperation({
+    summary:
+      'Admin diagnostics: HTTP status of each delivery path for the material file',
+  })
+  @ApiResponse({ status: 200, description: 'Map of probe → status' })
+  diagnose(@Param('id') id: string): Promise<Record<string, string>> {
+    return this.lessonsService.diagnoseMaterial(id);
   }
 
   @UseGuards(LessonOwnerGuard)

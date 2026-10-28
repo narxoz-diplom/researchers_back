@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   Inject,
@@ -407,12 +408,7 @@ export class LessonsService {
       throw new BadRequestException(ErrorCode.MATERIAL_PREVIEW_UNSUPPORTED);
     }
 
-    const buffer = await this.mediaService.downloadForIndexing(
-      material.cloudinaryPublicId,
-      UploadResourceType.RAW,
-      material.url,
-      material.mimeType,
-    );
+    const buffer = await this.fetchMaterialBytes(material);
     const result = await mammoth.convertToHtml({ buffer });
     return { html: result.value };
   }
@@ -427,18 +423,49 @@ export class LessonsService {
       throw new NotFoundException('Material not found');
     }
 
-    const buffer = await this.mediaService.downloadForIndexing(
-      material.cloudinaryPublicId,
-      UploadResourceType.RAW,
-      material.url,
-      material.mimeType,
-    );
+    const buffer = await this.fetchMaterialBytes(material);
 
     return {
       buffer,
       filename: material.title,
       mimeType: material.mimeType || 'application/octet-stream',
     };
+  }
+
+  /** Admin diagnostics: which delivery path works for this material's file. */
+  async diagnoseMaterial(id: string): Promise<Record<string, string>> {
+    const material = await this.lessonsRepository.findMaterialById(id);
+    if (!material) {
+      throw new NotFoundException('Material not found');
+    }
+    return this.mediaService.diagnoseDelivery(
+      material.cloudinaryPublicId,
+      UploadResourceType.RAW,
+      material.url,
+      material.mimeType,
+    );
+  }
+
+  /** The storage refused the file: say so (502 + reason) instead of a bare 500. */
+  private async fetchMaterialBytes(material: {
+    cloudinaryPublicId: string;
+    url: string;
+    mimeType: string;
+  }): Promise<Buffer> {
+    try {
+      return await this.mediaService.downloadForIndexing(
+        material.cloudinaryPublicId,
+        UploadResourceType.RAW,
+        material.url,
+        material.mimeType,
+      );
+    } catch (error) {
+      throw new BadGatewayException({
+        statusCode: 502,
+        message: ErrorCode.MEDIA_UNAVAILABLE,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   async deleteMaterial(id: string): Promise<void> {

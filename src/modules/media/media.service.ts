@@ -247,6 +247,90 @@ export class MediaService implements OnModuleInit {
   }
 
   /**
+   * Admin diagnostics: which delivery paths work for a stored file. Each
+   * probe reports an HTTP status or error text, never the file itself.
+   */
+  async diagnoseDelivery(
+    publicId: string,
+    resourceType: UploadResourceType.VIDEO | UploadResourceType.RAW,
+    storedUrl: string,
+    mimeType?: string,
+  ): Promise<Record<string, string>> {
+    const report: Record<string, string> = {
+      cloudinaryConfigured: String(this.configured),
+      publicId,
+      storedUrl,
+    };
+    const probe = async (label: string, url: string) => {
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { Range: 'bytes=0-0' },
+          signal: AbortSignal.timeout(20_000),
+        });
+        await response.body?.cancel().catch(() => undefined);
+        report[label] =
+          `HTTP ${response.status}` +
+          (response.ok || response.status === 206
+            ? ''
+            : ` ${(response.headers.get('x-cld-error') ?? '').slice(0, 120)}`);
+      } catch (error) {
+        report[label] =
+          `ERROR ${error instanceof Error ? error.message : String(error)}`;
+      }
+    };
+
+    if (/^https?:\/\//i.test(storedUrl.trim())) {
+      await probe('direct', storedUrl.trim());
+    } else {
+      report.direct = 'skipped (not an http URL)';
+    }
+    if (!this.configured) {
+      return report;
+    }
+
+    for (const type of ['upload', 'authenticated', 'private'] as const) {
+      await probe(
+        `signed_${type}`,
+        cloudinary.url(publicId, {
+          resource_type: resourceType,
+          type,
+          secure: true,
+          sign_url: true,
+        }),
+      );
+    }
+
+    try {
+      const resource = (await cloudinary.api.resource(publicId, {
+        resource_type: resourceType,
+      })) as {
+        type?: string;
+        format?: string;
+        bytes?: number;
+        access_mode?: string;
+      };
+      report.adminResource = `ok type=${resource.type ?? '?'} format=${resource.format ?? ''} bytes=${resource.bytes ?? '?'} access=${resource.access_mode ?? '?'}`;
+      const format = this.adminDownloadFormat(
+        publicId,
+        resource.format,
+        resourceType,
+        storedUrl,
+        mimeType,
+      );
+      const url = cloudinary.utils.private_download_url(publicId, format, {
+        resource_type: resourceType,
+        type: resource.type ?? 'upload',
+        expires_at: Math.floor(Date.now() / 1000) + 600,
+      });
+      await probe('adminDownload', url);
+    } catch (error) {
+      report.adminResource = `ERROR ${error instanceof Error ? error.message : JSON.stringify(error).slice(0, 200)}`;
+    }
+    return report;
+  }
+
+  /**
    * Download lesson media for RAG indexing. Cloudinary CDN often blocks raw/PDF
    * delivery (401 ACL) even with signed URLs; Admin API download works reliably.
    */
